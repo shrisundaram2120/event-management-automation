@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %></title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="page-shell">
+    <main class="center-shell">
+      <section class="panel thank-you-card error-card">
+        <span class="eyebrow">Something went wrong</span>
+        <h1><%= pageTitle %></h1>
+        <p class="lead"><%= message %></p>
+        <div class="button-row">
+          <a class="button primary-button" href="/">Back to registration</a>
+          <a class="button ghost-button" href="/dashboard">Open dashboard</a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

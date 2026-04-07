@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %></title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark">EF</span>
+        <span>
+          <strong><%= appName %></strong>
+          <small>Event operations, automated</small>
+        </span>
+      </a>
+      <nav class="nav-links">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/downloads/registrations.xlsx">Spreadsheet</a>
+      </nav>
+    </header>
+
+    <main class="home-grid">
+      <section class="panel hero-panel">
+        <span class="eyebrow">Automated event management system</span>
+        <h1><%= event.name %></h1>
+        <p class="lead"><%= event.tagline %></p>
+
+        <div class="event-ribbon">
+          <span><strong>Date</strong><%= event.date %></span>
+          <span><strong>Time</strong><%= event.time %></span>
+          <span><strong>Venue</strong><%= event.venue %></span>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <span>Total registrations</span>
+            <strong><%= metrics.totalRegistrations %></strong>
+          </article>
+          <article class="metric-card">
+            <span>Seats remaining</span>
+            <strong><%= metrics.remainingCapacity %></strong>
+          </article>
+          <article class="metric-card">
+            <span>Fill rate</span>
+            <strong><%= metrics.fillRate %>%</strong>
+          </article>
+          <article class="metric-card">
+            <span>Registrations today</span>
+            <strong><%= metrics.todayRegistrations %></strong>
+          </article>
+        </div>
+
+        <div class="story-grid">
+          <article class="story-card accent-card">
+            <h2>What runs automatically</h2>
+            <ul class="feature-list">
+              <li>Every registration is appended into a live Excel workbook.</li>
+              <li>Each attendee gets a generated PDF certificate file.</li>
+              <li>Email confirmations send instantly with SMTP, or fall back to a local preview log.</li>
+              <li>The dashboard refreshes from registration data and surfaces trends by day, source, city, and ticket type.</li>
+            </ul>
+          </article>
+          <article class="story-card">
+            <h2>Operations snapshot</h2>
+            <div class="status-stack">
+              <div>
+                <span>Status</span>
+                <strong>Registration open</strong>
+              </div>
+              <div>
+                <span>Email mode</span>
+                <strong><%= metrics.emailMode %></strong>
+              </div>
+              <div>
+                <span>Support</span>
+                <strong><%= event.supportEmail %></strong>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel form-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Registration form</span>
+            <h2>Reserve a seat</h2>
+          </div>
+          <span class="mode-pill"><%= metrics.emailMode %></span>
+        </div>
+
+        <% if (errors.form) { %>
+          <div class="alert error-alert"><%= errors.form %></div>
+        <% } %>
+
+        <form class="registration-form" method="post" action="/register">
+          <div class="form-grid">
+            <label class="field field--wide">
+              <span>Full name</span>
+              <input type="text" name="fullName" value="<%= formData.fullName %>" placeholder="Aarav Menon" required />
+              <% if (errors.fullName) { %><small class="field-error"><%= errors.fullName %></small><% } %>
+            </label>
+
+            <label class="field">
+              <span>Email address</span>
+              <input type="email" name="email" value="<%= formData.email %>" placeholder="aarav@example.com" required />
+              <% if (errors.email) { %><small class="field-error"><%= errors.email %></small><% } %>
+            </label>
+
+            <label class="field">
+              <span>Phone</span>
+              <input type="text" name="phone" value="<%= formData.phone %>" placeholder="+91 98765 43210" required />
+              <% if (errors.phone) { %><small class="field-error"><%= errors.phone %></small><% } %>
+            </label>
+
+            <label class="field">
+              <span>Organization</span>
+              <input type="text" name="organization" value="<%= formData.organization %>" placeholder="Northstar Labs" />
+            </label>
+
+            <label class="field">
+              <span>Job title</span>
+              <input type="text" name="jobTitle" value="<%= formData.jobTitle %>" placeholder="Product Manager" />
+            </label>
+
+            <label class="field">
+              <span>Ticket type</span>
+              <select name="ticketType">
+                <% options.ticketTypes.forEach((ticketType) => { %>
+                  <option value="<%= ticketType %>" <%= formData.ticketType === ticketType ? 'selected' : '' %>><%= ticketType %></option>
+                <% }) %>
+              </select>
+              <% if (errors.ticketType) { %><small class="field-error"><%= errors.ticketType %></small><% } %>
+            </label>
+
+            <label class="field">
+              <span>Attendance mode</span>
+              <select name="attendanceMode">
+                <% options.attendanceModes.forEach((attendanceMode) => { %>
+                  <option value="<%= attendanceMode %>" <%= formData.attendanceMode === attendanceMode ? 'selected' : '' %>><%= attendanceMode %></option>
+                <% }) %>
+              </select>
+              <% if (errors.attendanceMode) { %><small class="field-error"><%= errors.attendanceMode %></small><% } %>
+            </label>
+
+            <label class="field">
+              <span>City</span>
+              <input type="text" name="city" value="<%= formData.city %>" placeholder="Bengaluru" />
+            </label>
+
+            <label class="field">
+              <span>Country</span>
+              <input type="text" name="country" value="<%= formData.country %>" placeholder="India" />
+            </label>
+
+            <label class="field field--wide">
+              <span>How did you hear about this event?</span>
+              <select name="referralSource">
+                <% options.referralSources.forEach((referralSource) => { %>
+                  <option value="<%= referralSource %>" <%= formData.referralSource === referralSource ? 'selected' : '' %>><%= referralSource %></option>
+                <% }) %>
+              </select>
+              <% if (errors.referralSource) { %><small class="field-error"><%= errors.referralSource %></small><% } %>
+            </label>
+
+            <label class="field field--wide">
+              <span>Notes for the event team</span>
+              <textarea name="notes" placeholder="Accessibility needs, workshop interests, or anything we should know"><%= formData.notes %></textarea>
+            </label>
+          </div>
+
+          <label class="consent-row">
+            <input type="checkbox" name="consent" value="yes" <%= formData.consent === 'yes' ? 'checked' : '' %> />
+            <span>I consent to receiving registration updates and certificate delivery for this event.</span>
+          </label>
+          <% if (errors.consent) { %><small class="field-error inline-error"><%= errors.consent %></small><% } %>
+
+          <div class="button-row">
+            <button class="button primary-button" type="submit">Register attendee</button>
+            <a class="button ghost-button" href="/dashboard">View dashboard</a>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

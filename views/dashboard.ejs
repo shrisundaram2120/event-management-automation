@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %></title>
+    <script>
+      (function () {
+        var stored = localStorage.getItem("eventflow-theme");
+        var theme = stored || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+    <link rel="stylesheet" href="/css/dashboard.css" />
+    <script src="/js/dashboard.js" defer></script>
+  </head>
+  <%
+    const trend = dashboard.charts.dailyTrend;
+    const maxTrend = Math.max(1, ...trend.map((item) => item.value));
+    const chartWidth = 720;
+    const chartHeight = 260;
+    const chartPaddingX = 26;
+    const chartPaddingY = 28;
+    const points = trend.map((item, index) => {
+      const x = chartPaddingX + (trend.length === 1 ? 0 : (index * (chartWidth - chartPaddingX * 2)) / (trend.length - 1));
+      const y = chartHeight - chartPaddingY - ((item.value / maxTrend) * (chartHeight - chartPaddingY * 2));
+      return { ...item, x: Number(x.toFixed(2)), y: Number(y.toFixed(2)) };
+    });
+    const linePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
+    const areaPoints = `${chartPaddingX},${chartHeight - chartPaddingY} ${linePoints} ${chartWidth - chartPaddingX},${chartHeight - chartPaddingY}`;
+    const growthText = dashboard.summary.growthRate >= 0 ? `+${dashboard.summary.growthRate}%` : `${dashboard.summary.growthRate}%`;
+  %>
+  <body class="superapp-body" data-total-registrations="<%= dashboard.summary.totalRegistrations %>">
+    <div class="superapp-layout">
+      <aside class="superapp-sidebar panel-surface">
+        <a class="sidebar-brand" href="/dashboard" aria-label="EventFlow dashboard home">
+          <span class="sidebar-brand-mark">EF</span>
+        </a>
+        <nav class="sidebar-nav" aria-label="Primary navigation">
+          <a class="sidebar-link is-active" href="/dashboard">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13.2L12 4l9 9.2V21H3z"></path></svg>
+            <span>Dashboard</span>
+          </a>
+          <a class="sidebar-link" href="/">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M8 9h8M8 13h8M8 17h5"></path></svg>
+            <span>Registrations</span>
+          </a>
+          <a class="sidebar-link" href="#automations">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.3 4.7 5.2.8-3.7 3.7.9 5.1L12 15l-4.7 2.4.9-5.1-3.7-3.7 5.2-.8z"></path></svg>
+            <span>Automations</span>
+          </a>
+          <a class="sidebar-link" href="#settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 100 6.8 3.4 3.4 0 000-6.8zm8.2 3.4l-1.8-.6a6.9 6.9 0 00-.6-1.5l.8-1.7-1.9-1.9-1.7.8a6.9 6.9 0 00-1.5-.6L12 3.8l-2.5.7a6.9 6.9 0 00-1.5.6l-1.7-.8-1.9 1.9.8 1.7a6.9 6.9 0 00-.6 1.5L3.8 12l.7 2.5c.1.5.3 1 .6 1.5l-.8 1.7 1.9 1.9 1.7-.8c.5.3 1 .5 1.5.6L12 20.2l2.5-.7c.5-.1 1-.3 1.5-.6l1.7.8 1.9-1.9-.8-1.7c.3-.5.5-1 .6-1.5z"></path></svg>
+            <span>Settings</span>
+          </a>
+        </nav>
+      </aside>
+
+      <main class="superapp-engine">
+        <section class="panel-surface hero-strip">
+          <div>
+            <p class="eyebrow-label">Event Management Super App</p>
+            <h1><%= event.name %></h1>
+            <p class="hero-copy">A control center for registration flow, email operations, certificates, and live trend visibility.</p>
+          </div>
+          <div class="hero-meta">
+            <div>
+              <span>Today</span>
+              <strong><%= dashboard.summary.todayRegistrations %> new</strong>
+            </div>
+            <div>
+              <span>7-day growth</span>
+              <strong><%= growthText %></strong>
+            </div>
+            <div>
+              <span>Delivery mode</span>
+              <strong><%= dashboard.summary.emailMode %></strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="kpi-grid">
+          <article class="panel-surface kpi-card accent-a">
+            <div class="kpi-icon">R</div>
+            <span>Total Registrants</span>
+            <strong><%= dashboard.summary.totalRegistrations %></strong>
+            <small><%= dashboard.summary.fillRate %>% of total event capacity filled</small>
+          </article>
+          <article class="panel-surface kpi-card accent-b">
+            <div class="kpi-icon">E</div>
+            <span>Emails Sent</span>
+            <strong><%= dashboard.summary.emailsSent %></strong>
+            <small><%= emailConfigured ? 'SMTP confirmations delivered' : 'Preview log confirmations completed' %></small>
+          </article>
+          <article class="panel-surface kpi-card accent-c">
+            <div class="kpi-icon">C</div>
+            <span>Certificates Generated</span>
+            <strong><%= dashboard.summary.certificatesGenerated %></strong>
+            <small>Generated automatically for confirmed attendees</small>
+          </article>
+        </section>
+
+        <section class="panel-surface feed-card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Live Feed</p>
+              <h2>Recent registrations</h2>
+            </div>
+            <span class="sync-pill" data-sync-status>Monitoring live flow</span>
+          </div>
+          <div class="feed-list">
+            <% if (dashboard.recentRegistrations.length === 0) { %>
+              <div class="empty-shell">New registrations will appear here in real time.</div>
+            <% } %>
+            <% dashboard.recentRegistrations.forEach((registration) => { const initials = registration.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase(); %>
+              <article class="feed-item">
+                <div class="feed-user">
+                  <div class="feed-avatar"><%= initials %></div>
+                  <div>
+                    <strong><%= registration.fullName %></strong>
+                    <small><%= registration.ticketType %> • <%= registration.attendanceMode %> • <%= registration.city || 'Location pending' %></small>
+                  </div>
+                </div>
+                <div class="feed-actions">
+                  <span class="status-badge <%= registration.emailSuccessful ? 'status-success' : 'status-warning' %>"><%= registration.emailSuccessful ? 'Success' : 'Attention' %></span>
+                  <a class="mini-button" href="<%= registration.certificateUrl %>" target="_blank" rel="noreferrer">Download PDF</a>
+                </div>
+              </article>
+            <% }) %>
+          </div>
+        </section>
+
+        <section class="panel-surface analytics-card">
+          <div class="section-head analytics-head">
+            <div>
+              <p class="section-kicker">Analytics</p>
+              <h2>Registration trends over time</h2>
+            </div>
+            <small class="analytics-copy">Daily intake for the last 14 days</small>
+          </div>
+          <div class="chart-shell">
+            <svg viewBox="0 0 <%= chartWidth %> <%= chartHeight %>" class="trend-chart" role="img" aria-label="Registration trend line chart">
+              <defs>
+                <linearGradient id="trendStroke" x1="0%" x2="100%" y1="0%" y2="0%">
+                  <stop offset="0%" stop-color="currentColor"></stop>
+                  <stop offset="100%" stop-color="#5ea4ff"></stop>
+                </linearGradient>
+                <linearGradient id="trendArea" x1="0%" x2="0%" y1="0%" y2="100%">
+                  <stop offset="0%" stop-color="rgba(57, 123, 255, 0.28)"></stop>
+                  <stop offset="100%" stop-color="rgba(57, 123, 255, 0)"></stop>
+                </linearGradient>
+              </defs>
+              <% [0.25, 0.5, 0.75].forEach((mark) => { const y = chartHeight - chartPaddingY - (mark * (chartHeight - chartPaddingY * 2)); %>
+                <line x1="<%= chartPaddingX %>" y1="<%= y %>" x2="<%= chartWidth - chartPaddingX %>" y2="<%= y %>" class="chart-grid"></line>
+              <% }) %>
+              <polygon points="<%= areaPoints %>" class="chart-area"></polygon>
+              <polyline points="<%= linePoints %>" class="chart-line"></polyline>
+              <% points.forEach((point) => { %>
+                <circle cx="<%= point.x %>" cy="<%= point.y %>" r="4.5" class="chart-point"></circle>
+              <% }) %>
+            </svg>
+            <div class="chart-axis">
+              <% trend.forEach((item) => { %>
+                <span><%= item.label %></span>
+              <% }) %>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="superapp-status">
+        <section id="settings" class="panel-surface side-card">
+          <div class="section-head compact-head">
+            <div>
+              <p class="section-kicker">System Status</p>
+              <h2>Quick controls</h2>
+            </div>
+          </div>
+          <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+            <span data-theme-label>Switch theme</span>
+            <strong data-theme-mode>Light</strong>
+          </button>
+          <div class="status-stack">
+            <div class="status-row">
+              <span>Email service</span>
+              <strong><%= emailConfigured ? 'SMTP live' : 'Preview mode' %></strong>
+            </div>
+            <div class="status-row">
+              <span>Certificates</span>
+              <strong><%= dashboard.summary.certificatesGenerated %> ready</strong>
+            </div>
+            <div class="status-row">
+              <span>Event location</span>
+              <a class="inline-link" href="<%= mapUrl %>" target="_blank" rel="noreferrer">Open Google Maps</a>
+            </div>
+          </div>
+        </section>
+
+        <section id="automations" class="panel-surface side-card quick-actions-card">
+          <div class="section-head compact-head">
+            <div>
+              <p class="section-kicker">Quick Actions</p>
+              <h2>Manual triggers</h2>
+            </div>
+          </div>
+          <% if (dashboard.recentRegistrations.length > 0) { %>
+            <form class="action-form" method="post" action="/actions/certificates/regenerate" target="_blank">
+              <label for="registrationId">Generate certificate for</label>
+              <select id="registrationId" name="registrationId">
+                <% dashboard.recentRegistrations.forEach((registration) => { %>
+                  <option value="<%= registration.registrationId %>" <%= registration.registrationId === quickActionRegistrationId ? 'selected' : '' %>><%= registration.fullName %> • <%= registration.registrationId %></option>
+                <% }) %>
+              </select>
+              <button class="action-button action-button-primary" type="submit">Trigger Certificate</button>
+            </form>
+          <% } else { %>
+            <div class="empty-shell small-empty">Register someone first to unlock manual certificate generation.</div>
+          <% } %>
+          <a class="action-button action-button-secondary" href="/downloads/registrations.xlsx">Export Spreadsheet Data</a>
+        </section>
+      </aside>
+    </div>
+  </body>
+</html>

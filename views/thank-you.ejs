@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %></title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark">EF</span>
+        <span>
+          <strong><%= appName %></strong>
+          <small>Registration completed</small>
+        </span>
+      </a>
+      <nav class="nav-links">
+        <a href="/">Register another</a>
+        <a href="/dashboard">Dashboard</a>
+      </nav>
+    </header>
+
+    <main class="center-shell">
+      <section class="panel thank-you-card">
+        <span class="eyebrow">Registration confirmed</span>
+        <h1>Seat secured for <%= registration.fullName %></h1>
+        <p class="lead">The registration has been saved to the spreadsheet, the certificate has been generated, and the confirmation workflow has been processed.</p>
+
+        <div class="confirmation-grid">
+          <article>
+            <span>Registration ID</span>
+            <strong><%= registration.registrationId %></strong>
+          </article>
+          <article>
+            <span>Email status</span>
+            <strong><%= registration.emailStatus %></strong>
+          </article>
+          <article>
+            <span>Ticket</span>
+            <strong><%= registration.ticketType %></strong>
+          </article>
+          <article>
+            <span>Mode</span>
+            <strong><%= registration.attendanceMode %></strong>
+          </article>
+        </div>
+
+        <div class="callout-card">
+          <% if (emailConfigured) { %>
+            <p>A confirmation email has been sent to <strong><%= registration.email %></strong> with the certificate attached.</p>
+          <% } else { %>
+            <p>SMTP is not configured yet, so a confirmation preview was logged locally instead of being sent by email.</p>
+          <% } %>
+        </div>
+
+        <div class="button-row">
+          <a class="button primary-button" href="/certificates/<%= registration.registrationId %>">Download certificate</a>
+          <a class="button ghost-button" href="/dashboard">Open dashboard</a>
+          <a class="button ghost-button" href="/">Register another attendee</a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
