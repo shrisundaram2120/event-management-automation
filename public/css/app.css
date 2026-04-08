@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: light;
   --background: #faf8ff;
   --background-low: #f2f3fe;
@@ -193,6 +193,21 @@ select {
 .mobile-nav,
 .app-main {
   position: relative;
+}
+
+.app-topbar {
+  z-index: 40;
+}
+
+.desktop-sidebar {
+  z-index: 20;
+}
+
+.mobile-nav {
+  z-index: 50;
+}
+
+.app-main {
   z-index: 1;
 }
 
@@ -412,19 +427,23 @@ select {
   position: fixed;
   left: 14px;
   right: 14px;
-  bottom: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
   border-radius: 26px;
   backdrop-filter: blur(20px);
   background: var(--mobile-nav-bg);
   box-shadow: var(--shadow);
+  pointer-events: auto;
 }
 
 
 .mobile-link {
+  position: relative;
+  z-index: 1;
   display: grid;
   justify-items: center;
   gap: 6px;
@@ -434,6 +453,9 @@ select {
   font-size: 0.7rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-link--active {
@@ -442,7 +464,7 @@ select {
 }
 
 .app-main {
-  padding: 104px 18px 122px;
+  padding: 104px 18px calc(122px + env(safe-area-inset-bottom));
 }
 
 .page-wrap {
@@ -1470,7 +1492,7 @@ textarea.field-control {
   }
 
   .app-main {
-    padding: 92px 14px 112px;
+    padding: 92px 14px calc(124px + env(safe-area-inset-bottom));
   }
 
   .page-header h1 {
@@ -1552,6 +1574,7 @@ textarea.field-control {
     display: none;
   }
 }
+
 
 
 
