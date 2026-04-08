@@ -4,6 +4,13 @@ const nodemailer = require("nodemailer");
 
 const config = require("../config");
 
+let transporter;
+let smtpStatus = {
+  ok: false,
+  mode: "preview-log",
+  message: "SMTP is not configured. Email previews will be logged locally.",
+};
+
 function emailIsConfigured() {
   return config.smtp.enabled;
 }
@@ -13,15 +20,54 @@ function getTransporter() {
     return null;
   }
 
-  return nodemailer.createTransport({
-    host: config.smtp.host,
-    port: config.smtp.port,
-    secure: config.smtp.secure,
-    auth: {
-      user: config.smtp.user,
-      pass: config.smtp.pass,
-    },
-  });
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: config.smtp.host,
+      port: config.smtp.port,
+      secure: config.smtp.secure,
+      auth: {
+        user: config.smtp.user,
+        pass: config.smtp.pass,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+  }
+
+  return transporter;
+}
+
+function getSmtpStatus() {
+  return smtpStatus;
+}
+
+async function verifySmtpConnection() {
+  if (!emailIsConfigured()) {
+    smtpStatus = {
+      ok: false,
+      mode: "preview-log",
+      message: "SMTP is not configured. Email previews will be logged locally.",
+    };
+    return smtpStatus;
+  }
+
+  try {
+    await getTransporter().verify();
+    smtpStatus = {
+      ok: true,
+      mode: "smtp",
+      message: `SMTP is ready via ${config.smtp.host}:${config.smtp.port}.`,
+    };
+  } catch (error) {
+    smtpStatus = {
+      ok: false,
+      mode: "smtp-error",
+      message: `SMTP verification failed: ${error.message}`,
+    };
+  }
+
+  return smtpStatus;
 }
 
 function buildHtml(registration) {
@@ -46,6 +92,20 @@ function buildHtml(registration) {
   `;
 }
 
+function buildText(registration) {
+  return [
+    `Hello ${registration.fullName},`,
+    "",
+    `Your registration is confirmed for ${config.event.name}.`,
+    `Date: ${config.event.date}`,
+    `Time: ${config.event.time}`,
+    `Venue: ${config.event.venue}`,
+    `Registration ID: ${registration.registrationId}`,
+    `Certificate: ${config.app.baseUrl}/certificates/${registration.registrationId}`,
+    `Support: ${config.event.supportEmail}`,
+  ].join("\n");
+}
+
 function logEmailPreview(payload) {
   const logDir = path.dirname(config.storage.emailLogPath);
   fs.mkdirSync(logDir, { recursive: true });
@@ -59,6 +119,7 @@ function logEmailPreview(payload) {
 async function sendConfirmationEmail(registration, certificate) {
   const subject = `Registration confirmed: ${config.event.name}`;
   const html = buildHtml(registration);
+  const text = buildText(registration);
 
   if (!emailIsConfigured()) {
     logEmailPreview({
@@ -68,7 +129,14 @@ async function sendConfirmationEmail(registration, certificate) {
       sentAt: new Date().toISOString(),
       attachment: certificate.fileName,
       html,
+      text,
     });
+
+    smtpStatus = {
+      ok: false,
+      mode: "preview-log",
+      message: "SMTP is not configured. Email previews are being logged locally.",
+    };
 
     return {
       delivered: false,
@@ -76,19 +144,30 @@ async function sendConfirmationEmail(registration, certificate) {
     };
   }
 
-  const transporter = getTransporter();
-  await transporter.sendMail({
+  const message = {
     from: config.smtp.from,
     to: registration.email,
     subject,
     html,
+    text,
     attachments: [
       {
         filename: certificate.fileName,
         path: certificate.filePath,
       },
     ],
-  });
+  };
+
+  if (config.smtp.replyTo) {
+    message.replyTo = config.smtp.replyTo;
+  }
+
+  await getTransporter().sendMail(message);
+  smtpStatus = {
+    ok: true,
+    mode: "smtp",
+    message: `SMTP is ready via ${config.smtp.host}:${config.smtp.port}.`,
+  };
 
   return {
     delivered: true,
@@ -98,5 +177,7 @@ async function sendConfirmationEmail(registration, certificate) {
 
 module.exports = {
   emailIsConfigured,
+  getSmtpStatus,
   sendConfirmationEmail,
+  verifySmtpConnection,
 };

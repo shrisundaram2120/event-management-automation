@@ -7,7 +7,11 @@ const express = require("express");
 const config = require("./config");
 const { getDashboardData } = require("./services/analyticsService");
 const { generateCertificate } = require("./services/certificateService");
-const { emailIsConfigured } = require("./services/emailService");
+const {
+  emailIsConfigured,
+  getSmtpStatus,
+  verifySmtpConnection,
+} = require("./services/emailService");
 const {
   ATTENDANCE_MODES,
   REFERRAL_SOURCES,
@@ -179,6 +183,11 @@ app.get("/health", (request, response) => {
     status: "ok",
     event: config.event.name,
     registrations: listRegistrations().length,
+    storage: {
+      mode: "sqlite",
+      exportEnabled: true,
+    },
+    email: getSmtpStatus(),
   });
 });
 
@@ -190,6 +199,9 @@ app.use((error, request, response, next) => {
   });
 });
 
-app.listen(config.app.port, () => {
+app.listen(config.app.port, async () => {
+  const smtpStatus = await verifySmtpConnection();
   console.log(`${config.app.name} is running on ${config.app.baseUrl}`);
+  console.log(`Persistent data path: ${config.storage.databasePath}`);
+  console.log(smtpStatus.message);
 });

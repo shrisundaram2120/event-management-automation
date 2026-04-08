@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { DatabaseSync } = require("node:sqlite");
 const XLSX = require("xlsx");
 
 const config = require("../config");
@@ -25,38 +26,22 @@ const HEADERS = [
   "certificateFile",
 ];
 
+let database;
+let migrationChecked = false;
+
 function ensureParentDir(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
-function writeWorkbook(rows) {
+function ensureStorageDirectories() {
+  ensureParentDir(config.storage.databasePath);
   ensureParentDir(config.storage.workbookPath);
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.json_to_sheet(rows, {
-    header: HEADERS,
-  });
-  XLSX.utils.book_append_sheet(workbook, worksheet, SHEET_NAME);
-  XLSX.writeFile(workbook, config.storage.workbookPath);
+  fs.mkdirSync(config.storage.certificateDir, { recursive: true });
+  ensureParentDir(config.storage.emailLogPath);
 }
 
-function ensureWorkbook() {
-  if (fs.existsSync(config.storage.workbookPath)) {
-    return;
-  }
-
-  writeWorkbook([]);
-}
-
-function listRegistrations() {
-  ensureWorkbook();
-  const workbook = XLSX.readFile(config.storage.workbookPath, { cellDates: true });
-  const worksheet = workbook.Sheets[SHEET_NAME];
-
-  if (!worksheet) {
-    return [];
-  }
-
-  return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map((row) => ({
+function normalizeRow(row = {}) {
+  return {
     registrationId: String(row.registrationId || ""),
     createdAt: String(row.createdAt || ""),
     fullName: String(row.fullName || ""),
@@ -74,39 +59,309 @@ function listRegistrations() {
     status: String(row.status || ""),
     emailStatus: String(row.emailStatus || ""),
     certificateFile: String(row.certificateFile || ""),
-  }));
+  };
+}
+
+function createWorkbook(rows) {
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(rows, {
+    header: HEADERS,
+  });
+  XLSX.utils.book_append_sheet(workbook, worksheet, SHEET_NAME);
+  XLSX.writeFile(workbook, config.storage.workbookPath);
+}
+
+function readLegacyWorkbookRows() {
+  if (!fs.existsSync(config.storage.workbookPath)) {
+    return [];
+  }
+
+  const workbook = XLSX.readFile(config.storage.workbookPath, { cellDates: true });
+  const worksheet = workbook.Sheets[SHEET_NAME];
+
+  if (!worksheet) {
+    return [];
+  }
+
+  return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(normalizeRow);
+}
+
+function getDatabase() {
+  ensureStorageDirectories();
+
+  if (!database) {
+    database = new DatabaseSync(config.storage.databasePath);
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS registrations (
+        registrationId TEXT PRIMARY KEY,
+        createdAt TEXT NOT NULL,
+        fullName TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        organization TEXT NOT NULL,
+        jobTitle TEXT NOT NULL,
+        ticketType TEXT NOT NULL,
+        attendanceMode TEXT NOT NULL,
+        city TEXT NOT NULL,
+        country TEXT NOT NULL,
+        referralSource TEXT NOT NULL,
+        notes TEXT NOT NULL,
+        consent TEXT NOT NULL,
+        status TEXT NOT NULL,
+        emailStatus TEXT NOT NULL,
+        certificateFile TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_email
+        ON registrations(lower(email));
+      CREATE INDEX IF NOT EXISTS idx_registrations_created_at
+        ON registrations(createdAt);
+    `);
+  }
+
+  if (!migrationChecked) {
+    migrateLegacyWorkbook();
+    migrationChecked = true;
+  }
+
+  return database;
+}
+
+function migrateLegacyWorkbook() {
+  const db = database;
+  const countRow = db.prepare("SELECT COUNT(*) AS count FROM registrations").get();
+  if (countRow.count > 0) {
+    return;
+  }
+
+  const rows = readLegacyWorkbookRows();
+  if (rows.length === 0) {
+    return;
+  }
+
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO registrations (
+      registrationId,
+      createdAt,
+      fullName,
+      email,
+      phone,
+      organization,
+      jobTitle,
+      ticketType,
+      attendanceMode,
+      city,
+      country,
+      referralSource,
+      notes,
+      consent,
+      status,
+      emailStatus,
+      certificateFile,
+      updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  db.exec("BEGIN");
+  try {
+    rows.forEach((row) => {
+      const normalized = normalizeRow(row);
+      insert.run(
+        normalized.registrationId,
+        normalized.createdAt || new Date().toISOString(),
+        normalized.fullName,
+        normalized.email,
+        normalized.phone,
+        normalized.organization,
+        normalized.jobTitle,
+        normalized.ticketType,
+        normalized.attendanceMode,
+        normalized.city,
+        normalized.country,
+        normalized.referralSource,
+        normalized.notes,
+        normalized.consent,
+        normalized.status,
+        normalized.emailStatus,
+        normalized.certificateFile,
+        normalized.createdAt || new Date().toISOString()
+      );
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function ensureWorkbook() {
+  getDatabase();
+  if (!fs.existsSync(config.storage.workbookPath)) {
+    createWorkbook([]);
+  }
+}
+
+function listRegistrations() {
+  const db = getDatabase();
+  const rows = db
+    .prepare(`
+      SELECT
+        registrationId,
+        createdAt,
+        fullName,
+        email,
+        phone,
+        organization,
+        jobTitle,
+        ticketType,
+        attendanceMode,
+        city,
+        country,
+        referralSource,
+        notes,
+        consent,
+        status,
+        emailStatus,
+        certificateFile
+      FROM registrations
+      ORDER BY createdAt ASC
+    `)
+    .all();
+
+  return rows.map(normalizeRow);
 }
 
 function addRegistration(registration) {
-  const rows = listRegistrations();
-  rows.push(registration);
-  writeWorkbook(rows);
-  return registration;
+  const db = getDatabase();
+  const normalized = normalizeRow(registration);
+  const timestamp = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO registrations (
+      registrationId,
+      createdAt,
+      fullName,
+      email,
+      phone,
+      organization,
+      jobTitle,
+      ticketType,
+      attendanceMode,
+      city,
+      country,
+      referralSource,
+      notes,
+      consent,
+      status,
+      emailStatus,
+      certificateFile,
+      updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    normalized.registrationId,
+    normalized.createdAt || timestamp,
+    normalized.fullName,
+    normalized.email,
+    normalized.phone,
+    normalized.organization,
+    normalized.jobTitle,
+    normalized.ticketType,
+    normalized.attendanceMode,
+    normalized.city,
+    normalized.country,
+    normalized.referralSource,
+    normalized.notes,
+    normalized.consent,
+    normalized.status,
+    normalized.emailStatus,
+    normalized.certificateFile,
+    timestamp
+  );
+
+  return normalized;
 }
 
-function updateRegistration(registrationId, updates) {
-  const rows = listRegistrations();
-  const updatedRows = rows.map((row) =>
-    row.registrationId === registrationId ? { ...row, ...updates } : row
+function updateRegistration(registrationId, updates = {}) {
+  const db = getDatabase();
+  const allowedFields = HEADERS.filter(
+    (field) => field !== "registrationId" && Object.prototype.hasOwnProperty.call(updates, field)
   );
-  writeWorkbook(updatedRows);
-  return updatedRows.find((row) => row.registrationId === registrationId) || null;
+
+  if (allowedFields.length === 0) {
+    return findRegistrationById(registrationId);
+  }
+
+  const values = allowedFields.map((field) => String(updates[field] ?? ""));
+  const setClause = allowedFields.map((field) => `${field} = ?`).join(", ");
+
+  db.prepare(
+    `UPDATE registrations SET ${setClause}, updatedAt = ? WHERE registrationId = ?`
+  ).run(...values, new Date().toISOString(), registrationId);
+
+  return findRegistrationById(registrationId);
 }
 
 function findRegistrationById(registrationId) {
-  return listRegistrations().find(
-    (row) => row.registrationId === registrationId
-  );
+  const db = getDatabase();
+  const row = db.prepare(`
+    SELECT
+      registrationId,
+      createdAt,
+      fullName,
+      email,
+      phone,
+      organization,
+      jobTitle,
+      ticketType,
+      attendanceMode,
+      city,
+      country,
+      referralSource,
+      notes,
+      consent,
+      status,
+      emailStatus,
+      certificateFile
+    FROM registrations
+    WHERE registrationId = ?
+    LIMIT 1
+  `).get(String(registrationId || ""));
+
+  return row ? normalizeRow(row) : null;
 }
 
 function findRegistrationByEmail(email) {
-  return listRegistrations().find(
-    (row) => row.email.toLowerCase() === String(email || "").toLowerCase()
-  );
+  const db = getDatabase();
+  const row = db.prepare(`
+    SELECT
+      registrationId,
+      createdAt,
+      fullName,
+      email,
+      phone,
+      organization,
+      jobTitle,
+      ticketType,
+      attendanceMode,
+      city,
+      country,
+      referralSource,
+      notes,
+      consent,
+      status,
+      emailStatus,
+      certificateFile
+    FROM registrations
+    WHERE lower(email) = lower(?)
+    LIMIT 1
+  `).get(String(email || ""));
+
+  return row ? normalizeRow(row) : null;
 }
 
 function getWorkbookPath() {
-  ensureWorkbook();
+  const rows = listRegistrations();
+  createWorkbook(rows);
   return config.storage.workbookPath;
 }
 

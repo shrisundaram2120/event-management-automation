@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: eventflow-automations
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 24.14.1
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data/eventflow
+      - key: BASE_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_REPLY_TO
+        sync: false
+      - key: EVENT_NAME
+        sync: false
+      - key: EVENT_DATE
+        sync: false
+      - key: EVENT_TIME
+        sync: false
+      - key: EVENT_VENUE
+        sync: false
+    disk:
+      name: eventflow-data
+      mountPath: /var/data
+      sizeGB: 1

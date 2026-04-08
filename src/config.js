@@ -7,12 +7,26 @@ function toNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function resolvePath(value, fallbackPath) {
+  if (!value) {
+    return fallbackPath;
+  }
+
+  return path.isAbsolute(value) ? value : path.resolve(rootDir, value);
+}
+
+const storageRoot = resolvePath(
+  process.env.DATA_DIR,
+  path.join(rootDir, "storage")
+);
+
 const config = {
   rootDir,
   app: {
     name: process.env.APP_NAME || "EventFlow Automations",
     port: toNumber(process.env.PORT, 3000),
     baseUrl: process.env.BASE_URL || "http://localhost:3000",
+    environment: process.env.NODE_ENV || "development",
   },
   event: {
     name: process.env.EVENT_NAME || "FutureProof Summit 2026",
@@ -29,9 +43,23 @@ const config = {
     timezone: process.env.EVENT_TIMEZONE || "Asia/Calcutta",
   },
   storage: {
-    workbookPath: path.join(rootDir, "storage", "data", "registrations.xlsx"),
-    certificateDir: path.join(rootDir, "storage", "certificates"),
-    emailLogPath: path.join(rootDir, "storage", "logs", "email-preview.log"),
+    rootDir: storageRoot,
+    databasePath: resolvePath(
+      process.env.DATABASE_PATH,
+      path.join(storageRoot, "data", "eventflow.sqlite")
+    ),
+    workbookPath: resolvePath(
+      process.env.WORKBOOK_EXPORT_PATH,
+      path.join(storageRoot, "data", "registrations.xlsx")
+    ),
+    certificateDir: resolvePath(
+      process.env.CERTIFICATE_DIR,
+      path.join(storageRoot, "certificates")
+    ),
+    emailLogPath: resolvePath(
+      process.env.EMAIL_LOG_PATH,
+      path.join(storageRoot, "logs", "email-preview.log")
+    ),
   },
   smtp: {
     host: process.env.SMTP_HOST || "",
@@ -43,6 +71,7 @@ const config = {
       process.env.SMTP_FROM ||
       process.env.SMTP_USER ||
       "Event Team <no-reply@example.com>",
+    replyTo: process.env.SMTP_REPLY_TO || "",
   },
 };
 
