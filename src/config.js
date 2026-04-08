@@ -7,6 +7,23 @@ function toNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function toBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
 function resolvePath(value, fallbackPath) {
   if (!value) {
     return fallbackPath;
@@ -19,6 +36,13 @@ const storageRoot = resolvePath(
   process.env.DATA_DIR,
   path.join(rootDir, "storage")
 );
+
+const firebasePrivateKey = String(process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+const firebaseAdminEmails = String(process.env.FIREBASE_ADMIN_EMAILS || "")
+  .split(",")
+  .map((value) => value.trim().toLowerCase())
+  .filter(Boolean);
+const adminSessionHours = Math.max(1, toNumber(process.env.ADMIN_SESSION_HOURS, 12));
 
 const config = {
   rootDir,
@@ -73,10 +97,41 @@ const config = {
       "Event Team <no-reply@example.com>",
     replyTo: process.env.SMTP_REPLY_TO || "",
   },
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID || "",
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || "",
+    privateKey: firebasePrivateKey,
+    webApiKey: process.env.FIREBASE_WEB_API_KEY || "",
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "",
+    registrationsCollection:
+      process.env.FIREBASE_REGISTRATIONS_COLLECTION || "registrations",
+    adminEmails: firebaseAdminEmails,
+    sessionCookieName:
+      process.env.ADMIN_SESSION_COOKIE_NAME || "eventflow_admin_session",
+    sessionDurationMs: adminSessionHours * 60 * 60 * 1000,
+    enableSync: toBoolean(process.env.FIREBASE_ENABLE_SYNC, true),
+    enableAuth: toBoolean(process.env.FIREBASE_ENABLE_AUTH, true),
+  },
 };
 
 config.smtp.enabled = Boolean(
   config.smtp.host && config.smtp.user && config.smtp.pass
+);
+
+config.firebase.enabled = Boolean(
+  config.firebase.projectId &&
+    config.firebase.clientEmail &&
+    config.firebase.privateKey
+);
+
+config.firebase.cloudSyncEnabled = Boolean(
+  config.firebase.enabled && config.firebase.enableSync
+);
+
+config.firebase.authEnabled = Boolean(
+  config.firebase.enabled &&
+    config.firebase.webApiKey &&
+    config.firebase.enableAuth
 );
 
 module.exports = config;

@@ -8,6 +8,13 @@ const config = require("./config");
 const { getDashboardData } = require("./services/analyticsService");
 const { generateCertificate } = require("./services/certificateService");
 const {
+  authIsConfigured,
+  createAdminSessionCookie,
+  getFirebaseStatus,
+  signInAdminWithPassword,
+  verifyAdminSessionCookie,
+} = require("./services/firebaseService");
+const {
   buildConfirmationEmailPreview,
   emailIsConfigured,
   getSmtpStatus,
@@ -25,7 +32,9 @@ const {
 const {
   ensureWorkbook,
   findRegistrationById,
+  flushCloudSync,
   getWorkbookPath,
+  hydrateRegistrationsFromCloudSync,
   listRegistrations,
   updateRegistration,
 } = require("./services/spreadsheetService");
@@ -42,7 +51,7 @@ app.use(express.json());
 app.use(express.static(path.join(config.rootDir, "public")));
 
 app.locals.appName = config.app.name;
-app.locals.assetVersion = '20260408-themefix';
+app.locals.assetVersion = "20260408-firebase";
 
 function mapUrl() {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -105,6 +114,43 @@ function buildAttendeeRecords(registrations) {
   }));
 }
 
+function getStorageStatus() {
+  const usingDefaultLocalStorage =
+    config.storage.rootDir === path.join(config.rootDir, "storage");
+  const productionPersistentDisk =
+    config.app.environment === "production" &&
+    config.storage.rootDir.startsWith("/var/data");
+  const firebaseStatus = getFirebaseStatus();
+
+  return {
+    mode: "sqlite",
+    exportEnabled: true,
+    workbookSync: "live",
+    persistence: productionPersistentDisk
+      ? "persistent-disk"
+      : usingDefaultLocalStorage
+        ? "local-storage"
+        : "custom-storage",
+    cloudSync: firebaseStatus.cloudSyncEnabled ? "firestore" : "disabled",
+  };
+}
+
+function getPlatformStatus() {
+  const firebaseStatus = getFirebaseStatus();
+
+  return {
+    dataBackend: firebaseStatus.cloudSyncEnabled
+      ? "SQLite + Firestore mirror"
+      : "SQLite + Excel export",
+    accessControl: firebaseStatus.authEnabled
+      ? "Firebase admin login"
+      : "Open access until Firebase Auth is configured",
+    cloudSync: firebaseStatus.cloudSyncEnabled
+      ? "Firestore sync active"
+      : "Cloud sync disabled",
+  };
+}
+
 function buildHomeViewModel(formData = {}, errors = {}) {
   const registrations = listRegistrations();
   const dashboard = getDashboardData(registrations);
@@ -114,6 +160,7 @@ function buildHomeViewModel(formData = {}, errors = {}) {
     pageTitle: `${config.event.name} | Registration`,
     event: config.event,
     emailConfigured: emailIsConfigured(),
+    platformStatus: getPlatformStatus(),
     metrics: {
       totalRegistrations: dashboard.summary.totalRegistrations,
       remainingCapacity: dashboard.summary.remainingCapacity,
@@ -143,6 +190,7 @@ function buildDashboardViewModel() {
     dashboard,
     emailConfigured: emailIsConfigured(),
     mapUrl: mapUrl(),
+    platformStatus: getPlatformStatus(),
     quickActionRegistrationId: latestRegistration ? latestRegistration.registrationId : "",
   };
 }
@@ -158,6 +206,7 @@ function buildAttendeesViewModel() {
     event: config.event,
     attendees,
     metrics: dashboard.summary,
+    platformStatus: getPlatformStatus(),
     emailStates: [...new Set(attendees.map((attendee) => attendee.emailStatus))],
     ticketFilters: [...new Set(attendees.map((attendee) => attendee.ticketType))],
   };
@@ -208,27 +257,39 @@ function buildAutomationsViewModel(selectedRegistrationId = "", noticeCode = "")
       : null,
     emailConfigured: emailIsConfigured(),
     smtpStatus: getSmtpStatus(),
+    platformStatus: getPlatformStatus(),
     mapUrl: mapUrl(),
     notice: buildNotice(noticeCode),
   };
 }
 
-function getStorageStatus() {
-  const usingDefaultLocalStorage =
-    config.storage.rootDir === path.join(config.rootDir, "storage");
-  const productionPersistentDisk =
-    config.app.environment === "production" &&
-    config.storage.rootDir.startsWith("/var/data");
+function buildLoginNotice(code) {
+  switch (String(code || "")) {
+    case "signed-out":
+      return {
+        toneClass: "notice--neutral",
+        message: "The admin session has been closed.",
+      };
+    case "session-expired":
+      return {
+        toneClass: "notice--warning",
+        message: "The admin session expired. Sign in again to continue.",
+      };
+    default:
+      return null;
+  }
+}
 
+function buildAdminLoginViewModel(nextPath = "/dashboard", errorMessage = "", noticeCode = "") {
   return {
-    mode: "sqlite",
-    exportEnabled: true,
-    workbookSync: "live",
-    persistence: productionPersistentDisk
-      ? "persistent-disk"
-      : usingDefaultLocalStorage
-        ? "local-storage"
-        : "custom-storage",
+    activePage: "dashboard",
+    pageTitle: `${config.event.name} | Admin Login`,
+    event: config.event,
+    nextPath: sanitizeNextPath(nextPath),
+    loginError: errorMessage,
+    loginNotice: buildLoginNotice(noticeCode),
+    firebaseStatus: getFirebaseStatus(),
+    platformStatus: getPlatformStatus(),
   };
 }
 
@@ -258,6 +319,7 @@ async function ensureCertificateBundle(registration) {
   updateRegistration(registration.registrationId, {
     certificateFile: generated.fileName,
   });
+  await flushCloudSync();
   return generated;
 }
 
@@ -271,6 +333,131 @@ function redirectToAutomations(response, registrationId, notice) {
   }
   const query = params.toString();
   response.redirect(`/automations${query ? `?${query}` : ""}`);
+}
+
+function parseCookies(request) {
+  const header = String(request.headers.cookie || "");
+  if (!header) {
+    return {};
+  }
+
+  return header.split(";").reduce((cookies, cookiePart) => {
+    const separatorIndex = cookiePart.indexOf("=");
+    if (separatorIndex === -1) {
+      return cookies;
+    }
+
+    const key = cookiePart.slice(0, separatorIndex).trim();
+    const value = cookiePart.slice(separatorIndex + 1).trim();
+
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch (error) {
+      cookies[key] = value;
+    }
+
+    return cookies;
+  }, {});
+}
+
+function buildSessionIdentity(decodedToken) {
+  const email = String(decodedToken.email || "admin@example.com");
+
+  return {
+    email,
+    uid: decodedToken.uid,
+    initials: buildInitials(email.split("@")[0]),
+  };
+}
+
+function serializeSessionCookie(value, options = {}) {
+  const parts = [
+    `${config.firebase.sessionCookieName}=${encodeURIComponent(value)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+
+  if (typeof options.maxAgeSeconds === "number") {
+    parts.push(`Max-Age=${options.maxAgeSeconds}`);
+  }
+
+  if (options.expires) {
+    parts.push(`Expires=${options.expires.toUTCString()}`);
+  }
+
+  if (config.app.environment === "production") {
+    parts.push("Secure");
+  }
+
+  return parts.join("; ");
+}
+
+function clearAdminSession(response) {
+  response.setHeader(
+    "Set-Cookie",
+    serializeSessionCookie("", {
+      expires: new Date(0),
+      maxAgeSeconds: 0,
+    })
+  );
+}
+
+function sanitizeNextPath(nextPath) {
+  const normalized = String(nextPath || "/dashboard").trim();
+
+  if (!normalized.startsWith("/") || normalized.startsWith("//")) {
+    return "/dashboard";
+  }
+
+  return normalized;
+}
+
+app.use(async (request, response, next) => {
+  response.locals.firebaseStatus = getFirebaseStatus();
+  response.locals.authConfigured = authIsConfigured();
+  response.locals.adminSession = null;
+  response.locals.adminAuthenticated = false;
+
+  if (!authIsConfigured()) {
+    next();
+    return;
+  }
+
+  const cookies = parseCookies(request);
+  const sessionCookie = cookies[config.firebase.sessionCookieName];
+
+  if (!sessionCookie) {
+    next();
+    return;
+  }
+
+  try {
+    const decodedToken = await verifyAdminSessionCookie(sessionCookie);
+    const adminSession = buildSessionIdentity(decodedToken);
+    request.adminSession = adminSession;
+    response.locals.adminSession = adminSession;
+    response.locals.adminAuthenticated = true;
+    next();
+  } catch (error) {
+    clearAdminSession(response);
+    next();
+  }
+});
+
+function requireAdminSession(request, response, next) {
+  if (!authIsConfigured()) {
+    next();
+    return;
+  }
+
+  if (request.adminSession) {
+    next();
+    return;
+  }
+
+  const redirectPath = encodeURIComponent(request.originalUrl || "/dashboard");
+  response.redirect(`/admin/login?next=${redirectPath}&notice=session-expired`);
 }
 
 app.get("/", (request, response) => {
@@ -310,26 +497,77 @@ app.get("/thank-you", (request, response) => {
   });
 });
 
-app.get("/dashboard", (request, response) => {
+app.get("/admin/login", (request, response) => {
+  if (request.adminSession) {
+    response.redirect(sanitizeNextPath(request.query.next));
+    return;
+  }
+
+  response.render(
+    "admin-login",
+    buildAdminLoginViewModel(request.query.next, "", request.query.notice)
+  );
+});
+
+app.post("/admin/login", async (request, response) => {
+  const nextPath = sanitizeNextPath(request.body.next);
+
+  if (!authIsConfigured()) {
+    response.status(503).render(
+      "admin-login",
+      buildAdminLoginViewModel(
+        nextPath,
+        "Firebase admin authentication is not configured yet. Add the Firebase env values first.",
+        request.query.notice
+      )
+    );
+    return;
+  }
+
+  try {
+    const signInResult = await signInAdminWithPassword(request.body.email, request.body.password);
+    const sessionCookie = await createAdminSessionCookie(signInResult.idToken);
+
+    response.setHeader(
+      "Set-Cookie",
+      serializeSessionCookie(sessionCookie, {
+        maxAgeSeconds: Math.floor(config.firebase.sessionDurationMs / 1000),
+      })
+    );
+    response.redirect(nextPath);
+  } catch (error) {
+    response.status(401).render(
+      "admin-login",
+      buildAdminLoginViewModel(nextPath, error.message, request.query.notice)
+    );
+  }
+});
+
+app.post("/admin/logout", (request, response) => {
+  clearAdminSession(response);
+  response.redirect("/admin/login?notice=signed-out");
+});
+
+app.get("/dashboard", requireAdminSession, (request, response) => {
   response.render("dashboard", buildDashboardViewModel());
 });
 
-app.get("/attendees", (request, response) => {
+app.get("/attendees", requireAdminSession, (request, response) => {
   response.render("attendees", buildAttendeesViewModel());
 });
 
-app.get("/automations", (request, response) => {
+app.get("/automations", requireAdminSession, (request, response) => {
   response.render(
     "automations",
     buildAutomationsViewModel(request.query.registrationId, request.query.notice)
   );
 });
 
-app.get("/api/dashboard", (request, response) => {
+app.get("/api/dashboard", requireAdminSession, (request, response) => {
   response.json(getDashboardData(listRegistrations()));
 });
 
-app.post("/actions/email/resend", async (request, response) => {
+app.post("/actions/email/resend", requireAdminSession, async (request, response) => {
   const registrationId = String(request.body.registrationId || "");
   const registration = findRegistrationById(registrationId);
 
@@ -349,6 +587,7 @@ app.post("/actions/email/resend", async (request, response) => {
       emailStatus: emailResult.delivered ? "Sent" : "Preview logged",
       certificateFile: certificate.fileName,
     });
+    await flushCloudSync();
 
     redirectToAutomations(
       response,
@@ -359,11 +598,12 @@ app.post("/actions/email/resend", async (request, response) => {
     updateRegistration(registration.registrationId, {
       emailStatus: "Failed",
     });
+    await flushCloudSync();
     redirectToAutomations(response, registration.registrationId, "email-failed");
   }
 });
 
-app.post("/actions/certificates/regenerate", async (request, response) => {
+app.post("/actions/certificates/regenerate", requireAdminSession, async (request, response) => {
   const registrationId = String(request.body.registrationId || "");
   const registration = findRegistrationById(registrationId);
 
@@ -380,6 +620,7 @@ app.post("/actions/certificates/regenerate", async (request, response) => {
     updateRegistration(registration.registrationId, {
       certificateFile: certificate.fileName,
     });
+    await flushCloudSync();
     response.download(certificate.filePath, certificate.fileName);
   } catch (error) {
     response.status(500).render("error", {
@@ -389,7 +630,7 @@ app.post("/actions/certificates/regenerate", async (request, response) => {
   }
 });
 
-app.get("/downloads/registrations.xlsx", (request, response) => {
+app.get("/downloads/registrations.xlsx", requireAdminSession, (request, response) => {
   response.download(getWorkbookPath(), "event-registrations.xlsx");
 });
 
@@ -422,6 +663,8 @@ app.get("/health", (request, response) => {
     registrations: listRegistrations().length,
     storage: getStorageStatus(),
     email: getSmtpStatus(),
+    firebase: getFirebaseStatus(),
+    adminAccess: authIsConfigured() ? "firebase-protected" : "open-until-configured",
   });
 });
 
@@ -433,23 +676,41 @@ app.use((error, request, response, next) => {
   });
 });
 
-app.listen(config.app.port, async () => {
-  const smtpStatus = await verifySmtpConnection();
-  const storageStatus = getStorageStatus();
-  console.log(`${config.app.name} is running on ${config.app.baseUrl}`);
-  console.log(`Persistent data path: ${config.storage.databasePath}`);
-  console.log(
-    `Storage profile: ${storageStatus.persistence} with ${storageStatus.workbookSync} workbook sync`
-  );
-  if (
-    config.app.environment === "production" &&
-    storageStatus.persistence !== "persistent-disk"
-  ) {
-    console.warn(
-      "Warning: production is not using a persistent disk. Registrations can disappear after redeploy until DATA_DIR points to a mounted disk."
+async function bootstrap() {
+  const cloudBootstrap = await hydrateRegistrationsFromCloudSync();
+
+  app.listen(config.app.port, async () => {
+    const smtpStatus = await verifySmtpConnection();
+    const storageStatus = getStorageStatus();
+    const firebaseStatus = getFirebaseStatus();
+
+    console.log(`${config.app.name} is running on ${config.app.baseUrl}`);
+    console.log(`Persistent data path: ${config.storage.databasePath}`);
+    console.log(
+      `Storage profile: ${storageStatus.persistence} with ${storageStatus.workbookSync} workbook sync`
     );
-  }
-  console.log(smtpStatus.message);
+    console.log(
+      `Firebase cloud sync: ${firebaseStatus.cloudSyncEnabled ? `${cloudBootstrap.source} (${cloudBootstrap.count} records)` : "disabled"}`
+    );
+    console.log(
+      `Admin access: ${firebaseStatus.authEnabled ? "Firebase login protected" : "open until Firebase Auth is configured"}`
+    );
+
+    if (
+      config.app.environment === "production" &&
+      storageStatus.persistence !== "persistent-disk" &&
+      !firebaseStatus.cloudSyncEnabled
+    ) {
+      console.warn(
+        "Warning: production is not using a persistent disk or Firestore sync. Registrations can disappear after redeploy."
+      );
+    }
+
+    console.log(smtpStatus.message);
+  });
+}
+
+bootstrap().catch((error) => {
+  console.error("Unable to start EventFlow Automations:", error);
+  process.exit(1);
 });
-
-

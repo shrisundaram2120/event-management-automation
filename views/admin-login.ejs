@@ -1,0 +1,73 @@
+<%- include("partials/head") %>
+  <body class="app-body">
+    <%- include("partials/chrome", { activePage: activePage }) %>
+
+    <main class="app-main">
+      <div class="page-wrap shell-center">
+        <section class="panel-card center-card">
+          <span class="eyebrow">Admin access</span>
+          <h1>Sign in to EventFlow operations</h1>
+          <p class="page-description">Dashboard access, attendee operations, exports, and automation controls can be protected with Firebase Authentication without changing the current design system.</p>
+
+          <% if (loginNotice) { %>
+            <div class="notice <%= loginNotice.toneClass %>" style="margin: 18px 0;"><%= loginNotice.message %></div>
+          <% } %>
+
+          <% if (loginError) { %>
+            <div class="notice notice--warning" style="margin: 18px 0;"><%= loginError %></div>
+          <% } %>
+
+          <% if (!firebaseStatus.authEnabled) { %>
+            <div class="notice notice--neutral" style="margin: 18px 0;">
+              Firebase admin login is not configured yet. Add <strong>FIREBASE_PROJECT_ID</strong>, <strong>FIREBASE_CLIENT_EMAIL</strong>, <strong>FIREBASE_PRIVATE_KEY</strong>, <strong>FIREBASE_WEB_API_KEY</strong>, and <strong>FIREBASE_ADMIN_EMAILS</strong> in your environment to turn on protected admin access.
+            </div>
+          <% } %>
+
+          <form method="post" action="/admin/login" class="detail-stack" style="margin-top: 22px;">
+            <input type="hidden" name="next" value="<%= nextPath %>" />
+
+            <label class="field">
+              <span class="field-label">Admin email</span>
+              <div class="field-control">
+                <input type="email" name="email" placeholder="admin@yourteam.com" required />
+              </div>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Password</span>
+              <div class="field-control">
+                <input type="password" name="password" placeholder="Enter your Firebase Auth password" required />
+              </div>
+            </label>
+
+            <div class="form-actions">
+              <button class="button button--primary" type="submit" <%= firebaseStatus.authEnabled ? '' : 'disabled' %>>Sign in</button>
+              <a class="button" href="/">Back to registration</a>
+            </div>
+          </form>
+
+          <div class="confirmation-grid" style="margin-top: 24px;">
+            <article class="detail-card">
+              <span>Cloud sync</span>
+              <strong><%= platformStatus.cloudSync %></strong>
+            </article>
+            <article class="detail-card">
+              <span>Access control</span>
+              <strong><%= platformStatus.accessControl %></strong>
+            </article>
+            <article class="detail-card">
+              <span>Collection</span>
+              <strong><%= firebaseStatus.collection %></strong>
+            </article>
+            <article class="detail-card">
+              <span>Admin allowlist</span>
+              <strong><%= firebaseStatus.adminEmailsConfigured ? 'Configured' : 'Required' %></strong>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
+  </body>
+</html>

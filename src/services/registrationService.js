@@ -4,6 +4,7 @@ const config = require("../config");
 const {
   addRegistration,
   findRegistrationByEmail,
+  flushCloudSync,
   listRegistrations,
   updateRegistration,
 } = require("./spreadsheetService");
@@ -147,12 +148,14 @@ async function registerAttendee(formData) {
   const certificate = await generateCertificate(registration);
   registration.certificateFile = certificate.fileName;
   addRegistration(registration);
+  await flushCloudSync();
 
   try {
     const emailResult = await sendConfirmationEmail(registration, certificate);
     const updatedRegistration = updateRegistration(registration.registrationId, {
       emailStatus: emailResult.delivered ? "Sent" : "Preview logged",
     });
+    await flushCloudSync();
 
     return {
       registration: updatedRegistration || registration,
@@ -163,6 +166,7 @@ async function registerAttendee(formData) {
     const updatedRegistration = updateRegistration(registration.registrationId, {
       emailStatus: "Failed",
     });
+    await flushCloudSync();
 
     return {
       registration: updatedRegistration || registration,

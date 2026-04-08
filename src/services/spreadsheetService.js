@@ -4,6 +4,12 @@ const { DatabaseSync } = require("node:sqlite");
 const XLSX = require("xlsx");
 
 const config = require("../config");
+const {
+  cloudSyncEnabled,
+  listCloudRegistrations,
+  syncRegistrationsSnapshot,
+  upsertCloudRegistration,
+} = require("./firebaseService");
 
 const SHEET_NAME = "Registrations";
 const HEADERS = [
@@ -28,6 +34,7 @@ const HEADERS = [
 
 let database;
 let migrationChecked = false;
+let cloudSyncQueue = Promise.resolve();
 
 function ensureParentDir(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -127,6 +134,33 @@ function getDatabase() {
   return database;
 }
 
+function insertRegistrationRow(statement, record) {
+  const normalized = normalizeRow(record);
+  const createdAt = normalized.createdAt || new Date().toISOString();
+  const updatedAt = String(record.updatedAt || createdAt);
+
+  statement.run(
+    normalized.registrationId,
+    createdAt,
+    normalized.fullName,
+    normalized.email,
+    normalized.phone,
+    normalized.organization,
+    normalized.jobTitle,
+    normalized.ticketType,
+    normalized.attendanceMode,
+    normalized.city,
+    normalized.country,
+    normalized.referralSource,
+    normalized.notes,
+    normalized.consent,
+    normalized.status,
+    normalized.emailStatus,
+    normalized.certificateFile,
+    updatedAt
+  );
+}
+
 function migrateLegacyWorkbook() {
   const db = database;
   const countRow = db.prepare("SELECT COUNT(*) AS count FROM registrations").get();
@@ -165,27 +199,7 @@ function migrateLegacyWorkbook() {
   db.exec("BEGIN");
   try {
     rows.forEach((row) => {
-      const normalized = normalizeRow(row);
-      insert.run(
-        normalized.registrationId,
-        normalized.createdAt || new Date().toISOString(),
-        normalized.fullName,
-        normalized.email,
-        normalized.phone,
-        normalized.organization,
-        normalized.jobTitle,
-        normalized.ticketType,
-        normalized.attendanceMode,
-        normalized.city,
-        normalized.country,
-        normalized.referralSource,
-        normalized.notes,
-        normalized.consent,
-        normalized.status,
-        normalized.emailStatus,
-        normalized.certificateFile,
-        normalized.createdAt || new Date().toISOString()
-      );
+      insertRegistrationRow(insert, row);
     });
     db.exec("COMMIT");
     createWorkbook(rows);
@@ -235,6 +249,24 @@ function listRegistrations() {
 function syncWorkbookExport(rows = listRegistrations()) {
   createWorkbook(rows.map(normalizeRow));
   return config.storage.workbookPath;
+}
+
+function queueCloudSyncTask(task) {
+  if (!cloudSyncEnabled()) {
+    return;
+  }
+
+  cloudSyncQueue = cloudSyncQueue
+    .catch(() => undefined)
+    .then(task)
+    .catch((error) => {
+      console.error(`Firebase registration sync failed: ${error.message}`);
+    });
+}
+
+function queueCloudRegistrationSync(registration) {
+  const normalized = normalizeRow(registration);
+  queueCloudSyncTask(() => upsertCloudRegistration(normalized));
 }
 
 function addRegistration(registration) {
@@ -289,6 +321,7 @@ function addRegistration(registration) {
   );
 
   syncWorkbookExport();
+  queueCloudRegistrationSync(savedRegistration);
   return savedRegistration;
 }
 
@@ -311,6 +344,9 @@ function updateRegistration(registrationId, updates = {}) {
 
   const updatedRegistration = findRegistrationById(registrationId);
   syncWorkbookExport();
+  if (updatedRegistration) {
+    queueCloudRegistrationSync(updatedRegistration);
+  }
   return updatedRegistration;
 }
 
@@ -372,6 +408,84 @@ function findRegistrationByEmail(email) {
   return row ? normalizeRow(row) : null;
 }
 
+async function hydrateRegistrationsFromCloudSync() {
+  getDatabase();
+
+  if (!cloudSyncEnabled()) {
+    return {
+      enabled: false,
+      source: "disabled",
+      count: listRegistrations().length,
+    };
+  }
+
+  const localRows = listRegistrations();
+  if (localRows.length > 0) {
+    await syncRegistrationsSnapshot(localRows);
+    syncWorkbookExport(localRows);
+    return {
+      enabled: true,
+      source: "local-seeded",
+      count: localRows.length,
+    };
+  }
+
+  const cloudRows = await listCloudRegistrations();
+  if (cloudRows.length === 0) {
+    syncWorkbookExport([]);
+    return {
+      enabled: true,
+      source: "cloud-empty",
+      count: 0,
+    };
+  }
+
+  const db = database;
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO registrations (
+      registrationId,
+      createdAt,
+      fullName,
+      email,
+      phone,
+      organization,
+      jobTitle,
+      ticketType,
+      attendanceMode,
+      city,
+      country,
+      referralSource,
+      notes,
+      consent,
+      status,
+      emailStatus,
+      certificateFile,
+      updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  db.exec("BEGIN");
+  try {
+    cloudRows.forEach((row) => {
+      insertRegistrationRow(insert, row);
+    });
+    db.exec("COMMIT");
+    syncWorkbookExport(cloudRows);
+    return {
+      enabled: true,
+      source: "cloud-restored",
+      count: cloudRows.length,
+    };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function flushCloudSync() {
+  return cloudSyncQueue.catch(() => undefined);
+}
+
 function getWorkbookPath() {
   return syncWorkbookExport();
 }
@@ -382,7 +496,9 @@ module.exports = {
   ensureWorkbook,
   findRegistrationByEmail,
   findRegistrationById,
+  flushCloudSync,
   getWorkbookPath,
+  hydrateRegistrationsFromCloudSync,
   listRegistrations,
   syncWorkbookExport,
   updateRegistration,

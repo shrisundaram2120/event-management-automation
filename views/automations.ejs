@@ -1,4 +1,4 @@
-﻿<%- include("partials/head") %>
+<%- include("partials/head") %>
   <%
     const previewLines = selectedRegistration ? preview.text.split("\n").filter(Boolean) : [];
   %>
@@ -124,6 +124,13 @@
                   </div>
                   <span class="toggle-indicator <%= emailConfigured ? 'is-on' : '' %>" aria-hidden="true"></span>
                 </div>
+                <div class="toggle-row">
+                  <div>
+                    <strong>Cloud sync</strong>
+                    <div class="table-meta"><%= platformStatus.cloudSync %></div>
+                  </div>
+                  <span class="toggle-indicator <%= platformStatus.cloudSync === 'Firestore sync active' ? 'is-on' : '' %>" aria-hidden="true"></span>
+                </div>
               </div>
             </article>
 
@@ -176,4 +183,5 @@
     <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
   </body>
 </html>
+
 

@@ -1,4 +1,4 @@
-﻿<%- include("partials/head") %>
+<%- include("partials/head") %>
   <%
     const trend = dashboard.charts.dailyTrend;
     const maxTrend = Math.max(1, ...trend.map((item) => item.value));
@@ -33,7 +33,7 @@
           <div class="status-inline">
             <span class="status-pill status-pill--success"><span class="status-dot"></span><strong><%= dashboard.summary.totalRegistrations === 0 ? 'Ready for launch' : 'Live flow active' %></strong></span>
             <span class="pill"><strong><%= dashboard.summary.growthRate >= 0 ? '+' : '' %><%= dashboard.summary.growthRate %>%</strong> 7 day growth</span>
-            <span class="pill" data-sync-status>Monitoring live flow</span>
+            <span class="pill" data-sync-status><%= platformStatus.cloudSync %></span>
           </div>
         </section>
 
@@ -112,6 +112,14 @@
                 <div class="summary-item">
                   <span>Email service</span>
                   <strong><%= emailConfigured ? 'SMTP live' : 'Preview logging' %></strong>
+                </div>
+                <div class="summary-item">
+                  <span>Data backend</span>
+                  <strong><%= platformStatus.dataBackend %></strong>
+                </div>
+                <div class="summary-item">
+                  <span>Access control</span>
+                  <strong><%= platformStatus.accessControl %></strong>
                 </div>
                 <div class="summary-item">
                   <span>Top source</span>
@@ -225,4 +233,3 @@
     <script src="/js/dashboard.js?v=<%= assetVersion %>" defer></script>
   </body>
 </html>
-

@@ -1,4 +1,4 @@
-﻿<%
+<%
   const currentPage = activePage || "dashboard";
   const currentPageLabel = {
     dashboard: "Dashboard",
@@ -12,6 +12,12 @@
     { key: "attendees", href: "/attendees", label: "Attendees", mobileLabel: "People" },
     { key: "automations", href: "/automations", label: "Automations", mobileLabel: "Config" },
   ];
+  const authLabel = authConfigured
+    ? adminAuthenticated && adminSession
+      ? adminSession.email
+      : "Firebase login required"
+    : "Open access";
+  const userBadge = adminAuthenticated && adminSession ? adminSession.initials : "EF";
 
   function navIcon(key) {
     if (key === "dashboard") {
@@ -44,13 +50,21 @@
   </div>
 
   <div class="topbar-actions">
+    <span class="pill desktop-only"><strong><%= authLabel %></strong></span>
     <a class="topbar-link topbar-link--desktop" href="/downloads/registrations.xlsx">Export data</a>
+    <% if (adminAuthenticated) { %>
+      <form method="post" action="/admin/logout" style="margin: 0;">
+        <button class="topbar-link" type="submit">Sign out</button>
+      </form>
+    <% } else { %>
+      <a class="topbar-link" href="/admin/login"><%= authConfigured ? 'Admin login' : 'Admin setup' %></a>
+    <% } %>
     <button class="theme-switch" type="button" data-theme-toggle aria-pressed="false">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2.5"></path><path d="M12 18.5V21"></path><path d="M4.93 4.93l1.77 1.77"></path><path d="M17.3 17.3l1.77 1.77"></path><path d="M3 12h2.5"></path><path d="M18.5 12H21"></path><path d="M4.93 19.07l1.77-1.77"></path><path d="M17.3 6.7l1.77-1.77"></path><circle cx="12" cy="12" r="4"></circle></svg>
       <span data-theme-label>Switch theme</span>
       <strong data-theme-mode>Light</strong>
     </button>
-    <span class="user-badge">EF</span>
+    <span class="user-badge"><%= userBadge %></span>
   </div>
 </header>
 
