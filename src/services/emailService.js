@@ -1,4 +1,4 @@
-const fs = require("fs");
+﻿const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
 
@@ -74,7 +74,7 @@ function buildHtml(registration) {
   const certificateUrl = `${config.app.baseUrl}/certificates/${registration.registrationId}`;
 
   return `
-    <div style="font-family: 'Trebuchet MS', Verdana, sans-serif; color: #16313f; line-height: 1.6;">
+    <div style="font-family: 'Inter', 'Segoe UI', sans-serif; color: #191b23; line-height: 1.6;">
       <h2 style="margin-bottom: 8px;">Your registration is confirmed</h2>
       <p>Hello ${registration.fullName},</p>
       <p>Thanks for registering for <strong>${config.event.name}</strong>.</p>
@@ -106,6 +106,14 @@ function buildText(registration) {
   ].join("\n");
 }
 
+function buildConfirmationEmailPreview(registration) {
+  return {
+    subject: `Registration confirmed: ${config.event.name}`,
+    html: buildHtml(registration),
+    text: buildText(registration),
+  };
+}
+
 function logEmailPreview(payload) {
   const logDir = path.dirname(config.storage.emailLogPath);
   fs.mkdirSync(logDir, { recursive: true });
@@ -117,19 +125,17 @@ function logEmailPreview(payload) {
 }
 
 async function sendConfirmationEmail(registration, certificate) {
-  const subject = `Registration confirmed: ${config.event.name}`;
-  const html = buildHtml(registration);
-  const text = buildText(registration);
+  const preview = buildConfirmationEmailPreview(registration);
 
   if (!emailIsConfigured()) {
     logEmailPreview({
       mode: "preview-log",
       to: registration.email,
-      subject,
+      subject: preview.subject,
       sentAt: new Date().toISOString(),
       attachment: certificate.fileName,
-      html,
-      text,
+      html: preview.html,
+      text: preview.text,
     });
 
     smtpStatus = {
@@ -147,9 +153,9 @@ async function sendConfirmationEmail(registration, certificate) {
   const message = {
     from: config.smtp.from,
     to: registration.email,
-    subject,
-    html,
-    text,
+    subject: preview.subject,
+    html: preview.html,
+    text: preview.text,
     attachments: [
       {
         filename: certificate.fileName,
@@ -176,6 +182,7 @@ async function sendConfirmationEmail(registration, certificate) {
 }
 
 module.exports = {
+  buildConfirmationEmailPreview,
   emailIsConfigured,
   getSmtpStatus,
   sendConfirmationEmail,

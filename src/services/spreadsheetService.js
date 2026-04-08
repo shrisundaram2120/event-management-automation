@@ -188,6 +188,7 @@ function migrateLegacyWorkbook() {
       );
     });
     db.exec("COMMIT");
+    createWorkbook(rows);
   } catch (error) {
     db.exec("ROLLBACK");
     throw error;
@@ -197,7 +198,7 @@ function migrateLegacyWorkbook() {
 function ensureWorkbook() {
   getDatabase();
   if (!fs.existsSync(config.storage.workbookPath)) {
-    createWorkbook([]);
+    syncWorkbookExport();
   }
 }
 
@@ -231,10 +232,19 @@ function listRegistrations() {
   return rows.map(normalizeRow);
 }
 
+function syncWorkbookExport(rows = listRegistrations()) {
+  createWorkbook(rows.map(normalizeRow));
+  return config.storage.workbookPath;
+}
+
 function addRegistration(registration) {
   const db = getDatabase();
   const normalized = normalizeRow(registration);
   const timestamp = new Date().toISOString();
+  const savedRegistration = {
+    ...normalized,
+    createdAt: normalized.createdAt || timestamp,
+  };
 
   db.prepare(`
     INSERT INTO registrations (
@@ -258,27 +268,28 @@ function addRegistration(registration) {
       updatedAt
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    normalized.registrationId,
-    normalized.createdAt || timestamp,
-    normalized.fullName,
-    normalized.email,
-    normalized.phone,
-    normalized.organization,
-    normalized.jobTitle,
-    normalized.ticketType,
-    normalized.attendanceMode,
-    normalized.city,
-    normalized.country,
-    normalized.referralSource,
-    normalized.notes,
-    normalized.consent,
-    normalized.status,
-    normalized.emailStatus,
-    normalized.certificateFile,
+    savedRegistration.registrationId,
+    savedRegistration.createdAt,
+    savedRegistration.fullName,
+    savedRegistration.email,
+    savedRegistration.phone,
+    savedRegistration.organization,
+    savedRegistration.jobTitle,
+    savedRegistration.ticketType,
+    savedRegistration.attendanceMode,
+    savedRegistration.city,
+    savedRegistration.country,
+    savedRegistration.referralSource,
+    savedRegistration.notes,
+    savedRegistration.consent,
+    savedRegistration.status,
+    savedRegistration.emailStatus,
+    savedRegistration.certificateFile,
     timestamp
   );
 
-  return normalized;
+  syncWorkbookExport();
+  return savedRegistration;
 }
 
 function updateRegistration(registrationId, updates = {}) {
@@ -298,7 +309,9 @@ function updateRegistration(registrationId, updates = {}) {
     `UPDATE registrations SET ${setClause}, updatedAt = ? WHERE registrationId = ?`
   ).run(...values, new Date().toISOString(), registrationId);
 
-  return findRegistrationById(registrationId);
+  const updatedRegistration = findRegistrationById(registrationId);
+  syncWorkbookExport();
+  return updatedRegistration;
 }
 
 function findRegistrationById(registrationId) {
@@ -360,9 +373,7 @@ function findRegistrationByEmail(email) {
 }
 
 function getWorkbookPath() {
-  const rows = listRegistrations();
-  createWorkbook(rows);
-  return config.storage.workbookPath;
+  return syncWorkbookExport();
 }
 
 module.exports = {
@@ -373,5 +384,6 @@ module.exports = {
   findRegistrationById,
   getWorkbookPath,
   listRegistrations,
+  syncWorkbookExport,
   updateRegistration,
 };

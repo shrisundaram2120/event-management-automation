@@ -1,0 +1,142 @@
+﻿<%- include("partials/head") %>
+  <body class="app-body">
+    <%- include("partials/chrome", { activePage: activePage }) %>
+
+    <main class="app-main">
+      <div class="page-wrap">
+        <section class="page-header page-header--split">
+          <div class="page-copy">
+            <span class="eyebrow">Attendee roster</span>
+            <h1>Registered people</h1>
+            <p class="page-description">Search, filter, and open attendee operations without leaving the responsive management system.</p>
+          </div>
+          <div class="header-actions">
+            <a class="button button--ghost" href="/dashboard">Open dashboard</a>
+            <a class="button button--primary" href="/">Invite attendee</a>
+          </div>
+        </section>
+
+        <section class="roster-toolbar">
+          <div class="toolbar-grid">
+            <label class="input-shell search-shell">
+              <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.35-4.35"></path></svg>
+              <input type="text" placeholder="Search by name, email, company, or city" data-attendee-search />
+            </label>
+            <label class="filter-shell">
+              <select data-attendee-email-state>
+                <option>All</option>
+                <% emailStates.forEach((state) => { %>
+                  <option><%= state %></option>
+                <% }) %>
+              </select>
+            </label>
+            <label class="filter-shell">
+              <select data-attendee-ticket>
+                <option>All</option>
+                <% ticketFilters.forEach((ticket) => { %>
+                  <option><%= ticket %></option>
+                <% }) %>
+              </select>
+            </label>
+            <button class="button" type="button" data-clear-filters>Clear filters</button>
+          </div>
+          <div class="status-inline">
+            <span class="pill" data-attendee-count><%= attendees.length %> attendees</span>
+            <a class="button button--ghost button--small" href="/downloads/registrations.xlsx">Export list</a>
+          </div>
+        </section>
+
+        <section class="attendee-stats">
+          <article class="panel-card stat-card stat-card--soft">
+            <span class="stat-label">Total</span>
+            <div class="stat-value"><%= metrics.totalRegistrations %></div>
+            <p class="stat-meta">All registrations currently stored.</p>
+          </article>
+          <article class="panel-card stat-card stat-card--soft">
+            <span class="stat-label">Confirmed</span>
+            <div class="stat-value"><%= metrics.confirmedRegistrations %></div>
+            <p class="stat-meta">Seats confirmed in the event roster.</p>
+          </article>
+          <article class="panel-card stat-card stat-card--soft">
+            <span class="stat-label">Emails processed</span>
+            <div class="stat-value"><%= metrics.emailsSent %></div>
+            <p class="stat-meta">Sent or preview-logged confirmations.</p>
+          </article>
+          <article class="panel-card stat-card stat-card--soft">
+            <span class="stat-label">Certificates</span>
+            <div class="stat-value"><%= metrics.certificatesGenerated %></div>
+            <p class="stat-meta">Available for instant download.</p>
+          </article>
+        </section>
+
+        <div class="empty-state" data-attendee-empty hidden>
+          <strong>No attendees match the current filters.</strong>
+          <p>Try a broader search or clear the filters to see the full roster again.</p>
+        </div>
+
+        <section class="attendee-table desktop-attendee-table">
+          <div class="attendee-head table-header">
+            <div>Attendee</div>
+            <div>Delivery</div>
+            <div>Ticket</div>
+            <div style="text-align: right;">Actions</div>
+          </div>
+
+          <% attendees.forEach((attendee) => { %>
+            <article class="attendee-row panel-card" data-attendee-row data-search="<%= attendee.searchText %>" data-email-state="<%= attendee.emailStatus %>" data-ticket-type="<%= attendee.ticketType %>">
+              <div class="attendee-primary">
+                <div class="avatar avatar--soft"><%= attendee.initials %></div>
+                <div>
+                  <div class="attendee-name"><%= attendee.fullName %></div>
+                  <div class="attendee-meta"><%= attendee.email %> and <%= attendee.organization || 'Independent attendee' %></div>
+                  <div class="table-meta">Registered <%= attendee.createdLabel %></div>
+                </div>
+              </div>
+              <div class="pill-row">
+                <span class="status-pill status-pill--success"><span class="status-dot"></span><strong><%= attendee.status %></strong></span>
+                <span class="status-pill <%= attendee.emailStatus === 'Failed' ? 'status-pill--warning' : 'status-pill--primary' %>"><strong><%= attendee.emailStatus %></strong></span>
+              </div>
+              <div class="ticket-block">
+                <strong><%= attendee.ticketType %></strong>
+                <span class="ticket-caption"><%= attendee.attendanceMode %> and <%= attendee.city || 'Location pending' %></span>
+              </div>
+              <div class="card-actions" style="justify-content: flex-end;">
+                <a class="button button--small" href="/automations?registrationId=<%= attendee.registrationId %>">Ops</a>
+                <a class="button button--ghost button--small" href="<%= attendee.certificateUrl %>" target="_blank" rel="noreferrer">PDF</a>
+              </div>
+            </article>
+          <% }) %>
+        </section>
+
+        <section class="mobile-attendee-list">
+          <% attendees.forEach((attendee) => { %>
+            <article class="mobile-attendee-card panel-card" data-attendee-row data-search="<%= attendee.searchText %>" data-email-state="<%= attendee.emailStatus %>" data-ticket-type="<%= attendee.ticketType %>">
+              <div class="attendee-primary">
+                <div class="avatar avatar--soft"><%= attendee.initials %></div>
+                <div>
+                  <div class="attendee-name"><%= attendee.fullName %></div>
+                  <div class="attendee-meta"><%= attendee.email %></div>
+                </div>
+              </div>
+              <div class="pill-row">
+                <span class="status-pill status-pill--success"><span class="status-dot"></span><strong><%= attendee.status %></strong></span>
+                <span class="status-pill <%= attendee.emailStatus === 'Failed' ? 'status-pill--warning' : 'status-pill--primary' %>"><strong><%= attendee.emailStatus %></strong></span>
+              </div>
+              <div class="ticket-block">
+                <strong><%= attendee.ticketType %></strong>
+                <span class="ticket-caption"><%= attendee.attendanceMode %> and <%= attendee.city || 'Location pending' %></span>
+              </div>
+              <div class="card-actions">
+                <a class="button button--small" href="/automations?registrationId=<%= attendee.registrationId %>">Open ops</a>
+                <a class="button button--ghost button--small" href="<%= attendee.certificateUrl %>" target="_blank" rel="noreferrer">PDF</a>
+              </div>
+            </article>
+          <% }) %>
+        </section>
+      </div>
+    </main>
+
+    <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
+  </body>
+</html>
+

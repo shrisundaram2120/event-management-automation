@@ -1,0 +1,179 @@
+﻿<%- include("partials/head") %>
+  <%
+    const previewLines = selectedRegistration ? preview.text.split("\n").filter(Boolean) : [];
+  %>
+  <body class="app-body">
+    <%- include("partials/chrome", { activePage: activePage }) %>
+
+    <main class="app-main">
+      <div class="page-wrap">
+        <section class="page-header page-header--split">
+          <div class="page-copy">
+            <span class="eyebrow">Automation preview</span>
+            <h1>Email and certificate flow</h1>
+            <p class="page-description">Review the generated confirmation content, keep manual overrides available, and make the same controls work on desktop and mobile.</p>
+          </div>
+          <div class="header-actions">
+            <a class="button button--ghost" href="/dashboard">Back to dashboard</a>
+            <a class="button button--primary" href="/downloads/registrations.xlsx">Export data</a>
+          </div>
+        </section>
+
+        <% if (notice) { %>
+          <div class="notice <%= notice.toneClass %>" style="margin-bottom: 22px;"><%= notice.message %></div>
+        <% } %>
+
+        <section class="automation-grid">
+          <article class="email-window">
+            <div class="email-window-head">
+              <span class="card-eyebrow">Confirmation email</span>
+              <h2><%= selectedRegistration ? 'Live attendee preview' : 'No attendee selected' %></h2>
+            </div>
+
+            <div class="email-toolbar">
+              <form method="get" action="/automations" class="toolbar-grid" style="width: 100%;">
+                <label class="filter-shell" style="flex: 1 1 280px;">
+                  <select name="registrationId" data-auto-submit>
+                    <option value="">Select attendee</option>
+                    <% registrations.forEach((registration) => { %>
+                      <option value="<%= registration.registrationId %>" <%= selectedRegistration && selectedRegistration.registrationId === registration.registrationId ? 'selected' : '' %>><%= registration.fullName %> and <%= registration.registrationId %></option>
+                    <% }) %>
+                  </select>
+                </label>
+              </form>
+              <div class="status-inline">
+                <span class="status-pill <%= emailConfigured ? 'status-pill--success' : 'status-pill--primary' %>"><strong><%= emailConfigured ? 'Active' : 'Preview mode' %></strong></span>
+              </div>
+            </div>
+
+            <div class="email-canvas">
+              <% if (!selectedRegistration) { %>
+                <div class="empty-state">
+                  <strong>No registration selected yet.</strong>
+                  <p>As soon as you have attendee data, this page previews the exact confirmation workflow and certificate controls.</p>
+                </div>
+              <% } else { %>
+                <div class="email-fields">
+                  <div class="email-field">
+                    <span>From</span>
+                    <strong><%= smtpStatus.mode === 'smtp' ? 'Event Team via SMTP' : 'Event Team preview log' %></strong>
+                  </div>
+                  <div class="email-field">
+                    <span>To</span>
+                    <strong><%= selectedRegistration.email %></strong>
+                  </div>
+                  <div class="email-field">
+                    <span>Subject</span>
+                    <strong><%= preview.subject %></strong>
+                  </div>
+                </div>
+
+                <div class="email-copy">
+                  <% previewLines.forEach((line) => { %>
+                    <p><%= line %></p>
+                  <% }) %>
+                </div>
+
+                <div class="ticket-preview">
+                  <div class="ticket-preview-code"><%= selectedRegistration.registrationId.slice(-4) %></div>
+                  <div class="ticket-row">
+                    <span>Digital ticket</span>
+                    <strong><%= selectedRegistration.ticketType %></strong>
+                    <span><%= selectedRegistration.attendanceMode %> and certificate attached or downloadable.</span>
+                  </div>
+                </div>
+
+                <div class="email-actions">
+                  <form method="post" action="/actions/email/resend" class="email-actions">
+                    <input type="hidden" name="registrationId" value="<%= selectedRegistration.registrationId %>" />
+                    <button class="button button--primary" type="submit">Resend confirmation</button>
+                  </form>
+                  <a class="button" href="<%= selectedRegistration.certificateUrl %>" target="_blank" rel="noreferrer">Download certificate</a>
+                </div>
+              <% } %>
+            </div>
+          </article>
+
+          <div class="automation-stack">
+            <article class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <span class="card-eyebrow">Automation logic</span>
+                  <h2 class="panel-title">System status</h2>
+                </div>
+              </div>
+              <div class="logic-grid">
+                <div class="toggle-row">
+                  <div>
+                    <strong>Instant dispatch</strong>
+                    <div class="table-meta">Registrations trigger immediate email workflow.</div>
+                  </div>
+                  <span class="toggle-indicator is-on" aria-hidden="true"></span>
+                </div>
+                <div class="toggle-row">
+                  <div>
+                    <strong>Auto certificate</strong>
+                    <div class="table-meta">PDF generation is linked directly to confirmed registrations.</div>
+                  </div>
+                  <span class="toggle-indicator is-on" aria-hidden="true"></span>
+                </div>
+                <div class="toggle-row">
+                  <div>
+                    <strong>Delivery mode</strong>
+                    <div class="table-meta"><%= smtpStatus.message %></div>
+                  </div>
+                  <span class="toggle-indicator <%= emailConfigured ? 'is-on' : '' %>" aria-hidden="true"></span>
+                </div>
+              </div>
+            </article>
+
+            <article class="certificate-stage">
+              <div>
+                <span class="card-eyebrow">Generated certificate</span>
+                <h2 class="panel-title">Manual controls</h2>
+              </div>
+
+              <% if (!selectedRegistration) { %>
+                <div class="empty-state">
+                  <strong>Select an attendee to unlock certificate controls.</strong>
+                  <p>The preview screen becomes actionable as soon as a registration is loaded.</p>
+                </div>
+              <% } else { %>
+                <div class="certificate-preview">
+                  <span class="stat-label">Certificate preview</span>
+                  <h3><%= selectedRegistration.fullName %></h3>
+                  <p><%= event.name %></p>
+                  <strong>Signed by <%= event.certificateSigner %></strong>
+                </div>
+                <div class="detail-list">
+                  <div class="detail-item">
+                    <span>Registration ID</span>
+                    <strong><%= selectedRegistration.registrationId %></strong>
+                  </div>
+                  <div class="detail-item">
+                    <span>Email status</span>
+                    <strong><%= selectedRegistration.emailStatus %></strong>
+                  </div>
+                  <div class="detail-item">
+                    <span>Event location</span>
+                    <a class="map-link" href="<%= mapUrl %>" target="_blank" rel="noreferrer">Open Google Maps</a>
+                  </div>
+                </div>
+                <div class="stack-actions">
+                  <form method="post" action="/actions/certificates/regenerate" target="_blank" class="stack-actions" style="width: 100%;">
+                    <input type="hidden" name="registrationId" value="<%= selectedRegistration.registrationId %>" />
+                    <button class="button button--ghost button--full" type="submit">Regenerate certificate</button>
+                  </form>
+                  <a class="button button--full" href="/attendees">Open attendee roster</a>
+                </div>
+              <% } %>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
+  </body>
+</html>
+

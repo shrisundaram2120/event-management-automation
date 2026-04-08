@@ -1,26 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= pageTitle %></title>
-    <script>
-      (function () {
-        var stored = localStorage.getItem("eventflow-theme");
-        var theme = stored || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-        document.documentElement.dataset.theme = theme;
-      })();
-    </script>
-    <link rel="stylesheet" href="/css/dashboard.css" />
-    <script src="/js/dashboard.js" defer></script>
-  </head>
+﻿<%- include("partials/head") %>
   <%
     const trend = dashboard.charts.dailyTrend;
     const maxTrend = Math.max(1, ...trend.map((item) => item.value));
-    const chartWidth = 720;
-    const chartHeight = 260;
-    const chartPaddingX = 26;
-    const chartPaddingY = 28;
+    const chartWidth = 760;
+    const chartHeight = 280;
+    const chartPaddingX = 28;
+    const chartPaddingY = 26;
     const points = trend.map((item, index) => {
       const x = chartPaddingX + (trend.length === 1 ? 0 : (index * (chartWidth - chartPaddingX * 2)) / (trend.length - 1));
       const y = chartHeight - chartPaddingY - ((item.value / maxTrend) * (chartHeight - chartPaddingY * 2));
@@ -28,201 +13,216 @@
     });
     const linePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
     const areaPoints = `${chartPaddingX},${chartHeight - chartPaddingY} ${linePoints} ${chartWidth - chartPaddingX},${chartHeight - chartPaddingY}`;
-    const growthText = dashboard.summary.growthRate >= 0 ? `+${dashboard.summary.growthRate}%` : `${dashboard.summary.growthRate}%`;
+    const successRate = dashboard.summary.totalRegistrations > 0 ? Math.round((dashboard.summary.emailsSent / dashboard.summary.totalRegistrations) * 100) : 0;
+    const topSource = dashboard.charts.sourceMix[0] ? dashboard.charts.sourceMix[0].label : 'No source data yet';
+    const topCity = dashboard.charts.cityMix[0] ? dashboard.charts.cityMix[0].label : 'No city data yet';
+    const topTicket = dashboard.charts.ticketMix[0] ? dashboard.charts.ticketMix[0].label : 'No ticket data yet';
+    const topAttendance = dashboard.charts.attendanceMix[0] ? dashboard.charts.attendanceMix[0].label : 'No mode data yet';
   %>
-  <body class="superapp-body" data-total-registrations="<%= dashboard.summary.totalRegistrations %>">
-    <div class="superapp-layout">
-      <aside class="superapp-sidebar panel-surface">
-        <a class="sidebar-brand" href="/dashboard" aria-label="EventFlow dashboard home">
-          <span class="sidebar-brand-mark">EF</span>
-        </a>
-        <nav class="sidebar-nav" aria-label="Primary navigation">
-          <a class="sidebar-link is-active" href="/dashboard">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13.2L12 4l9 9.2V21H3z"></path></svg>
-            <span>Dashboard</span>
-          </a>
-          <a class="sidebar-link" href="/">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M8 9h8M8 13h8M8 17h5"></path></svg>
-            <span>Registrations</span>
-          </a>
-          <a class="sidebar-link" href="#automations">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.3 4.7 5.2.8-3.7 3.7.9 5.1L12 15l-4.7 2.4.9-5.1-3.7-3.7 5.2-.8z"></path></svg>
-            <span>Automations</span>
-          </a>
-          <a class="sidebar-link" href="#settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 100 6.8 3.4 3.4 0 000-6.8zm8.2 3.4l-1.8-.6a6.9 6.9 0 00-.6-1.5l.8-1.7-1.9-1.9-1.7.8a6.9 6.9 0 00-1.5-.6L12 3.8l-2.5.7a6.9 6.9 0 00-1.5.6l-1.7-.8-1.9 1.9.8 1.7a6.9 6.9 0 00-.6 1.5L3.8 12l.7 2.5c.1.5.3 1 .6 1.5l-.8 1.7 1.9 1.9 1.7-.8c.5.3 1 .5 1.5.6L12 20.2l2.5-.7c.5-.1 1-.3 1.5-.6l1.7.8 1.9-1.9-.8-1.7c.3-.5.5-1 .6-1.5z"></path></svg>
-            <span>Settings</span>
-          </a>
-        </nav>
-        <div class="sidebar-footer">
-          <span>Ops Mode</span>
-          <strong><%= emailConfigured ? 'Live delivery' : 'Preview workflow' %></strong>
-        </div>
-      </aside>
+  <body class="app-body" data-total-registrations="<%= dashboard.summary.totalRegistrations %>">
+    <%- include("partials/chrome", { activePage: activePage }) %>
 
-      <main class="superapp-engine">
-        <section class="panel-surface hero-strip">
-          <div>
-            <p class="eyebrow-label">Event Management Super App</p>
+    <main class="app-main">
+      <div class="page-wrap">
+        <section class="page-header page-header--split">
+          <div class="page-copy">
+            <span class="eyebrow">Management dashboard</span>
             <h1><%= event.name %></h1>
-            <p class="hero-copy">A control center for registration flow, email operations, certificates, and live trend visibility.</p>
+            <p class="page-description">A responsive operations surface for live registrations, automations, spreadsheet export, certificates, and trend visibility across desktop and mobile.</p>
           </div>
-          <div class="hero-meta">
-            <div>
-              <span>Today</span>
-              <strong><%= dashboard.summary.todayRegistrations %> new</strong>
-            </div>
-            <div>
-              <span>7-day growth</span>
-              <strong><%= growthText %></strong>
-            </div>
-            <div>
-              <span>Delivery mode</span>
-              <strong><%= dashboard.summary.emailMode %></strong>
-            </div>
+          <div class="status-inline">
+            <span class="status-pill status-pill--success"><span class="status-dot"></span><strong><%= dashboard.summary.totalRegistrations === 0 ? 'Ready for launch' : 'Live flow active' %></strong></span>
+            <span class="pill"><strong><%= dashboard.summary.growthRate >= 0 ? '+' : '' %><%= dashboard.summary.growthRate %>%</strong> 7 day growth</span>
+            <span class="pill" data-sync-status>Monitoring live flow</span>
           </div>
         </section>
 
-        <section class="kpi-grid">
-          <article class="panel-surface kpi-card accent-a">
-            <div class="kpi-icon">R</div>
-            <span>Total Registrants</span>
-            <strong><%= dashboard.summary.totalRegistrations %></strong>
-            <small><%= dashboard.summary.fillRate %>% of total event capacity filled</small>
+        <section class="stats-grid">
+          <article class="panel-card stat-card stat-card--soft">
+            <span class="stat-label">Total registrations</span>
+            <div class="stat-value"><%= dashboard.summary.totalRegistrations %></div>
+            <p class="stat-meta"><%= dashboard.summary.todayRegistrations %> new today across all channels.</p>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="9.5" cy="7" r="3"></circle><path d="M20 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16.5 4.13a3 3 0 0 1 0 5.74"></path></svg></span>
           </article>
-          <article class="panel-surface kpi-card accent-b">
-            <div class="kpi-icon">E</div>
-            <span>Emails Sent</span>
-            <strong><%= dashboard.summary.emailsSent %></strong>
-            <small><%= emailConfigured ? 'SMTP confirmations delivered' : 'Preview log confirmations completed' %></small>
+          <article class="panel-card stat-card stat-card--soft">
+            <span class="stat-label">Email success rate</span>
+            <div class="stat-value"><%= successRate %>%</div>
+            <p class="stat-meta"><%= dashboard.summary.emailsSent %> registration confirmations processed.</p>
+            <div class="progress-rail"><div class="progress-fill" style="width: <%= successRate %>%;"></div></div>
           </article>
-          <article class="panel-surface kpi-card accent-c">
-            <div class="kpi-icon">C</div>
-            <span>Certificates Generated</span>
-            <strong><%= dashboard.summary.certificatesGenerated %></strong>
-            <small>Generated automatically for confirmed attendees</small>
+          <article class="panel-card stat-card stat-card--soft">
+            <span class="stat-label">Certificates generated</span>
+            <div class="stat-value"><%= dashboard.summary.certificatesGenerated %></div>
+            <p class="stat-meta">Generated automatically for confirmed attendees.</p>
+            <span class="stat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21h10"></path><path d="M12 17v4"></path><path d="M6 3h12"></path><path d="M7 3v7a5 5 0 1 0 10 0V3"></path></svg></span>
+          </article>
+          <article class="panel-card stat-card stat-card--primary">
+            <span class="stat-label">Remaining seats</span>
+            <div class="stat-value"><%= dashboard.summary.remainingCapacity %></div>
+            <p class="stat-meta">Capacity <%= event.capacity %>. Fill rate is <%= dashboard.summary.fillRate %>%.</p>
           </article>
         </section>
 
-        <section class="panel-surface feed-card">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Live Feed</p>
-              <h2>Recent registrations</h2>
+        <section class="dashboard-grid">
+          <article class="panel-card chart-card">
+            <div class="chart-head">
+              <div>
+                <span class="card-eyebrow">Registration trends</span>
+                <h2 class="panel-title">Daily intake visibility</h2>
+              </div>
+              <div class="chart-controls">
+                <span class="control-pill">Daily</span>
+                <span class="control-pill is-active">2 weeks</span>
+              </div>
             </div>
-            <span class="sync-pill" data-sync-status>Monitoring live flow</span>
-          </div>
-          <div class="feed-list">
-            <% if (dashboard.recentRegistrations.length === 0) { %>
-              <div class="empty-shell">New registrations will appear here in real time.</div>
-            <% } %>
-            <% dashboard.recentRegistrations.forEach((registration) => { const initials = registration.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase(); %>
-              <article class="feed-item">
-                <div class="feed-user">
-                  <div class="feed-avatar"><%= initials %></div>
-                  <div>
-                    <strong><%= registration.fullName %></strong>
-                    <small><%= registration.ticketType %> • <%= registration.attendanceMode %> • <%= registration.city || 'Location pending' %></small>
-                  </div>
-                </div>
-                <div class="feed-actions">
-                  <span class="status-badge <%= registration.emailSuccessful ? 'status-success' : 'status-warning' %>"><%= registration.emailSuccessful ? 'Success' : 'Attention' %></span>
-                  <a class="mini-button" href="<%= registration.certificateUrl %>" target="_blank" rel="noreferrer">Download PDF</a>
-                </div>
-              </article>
-            <% }) %>
-          </div>
-        </section>
-
-        <section class="panel-surface analytics-card">
-          <div class="section-head analytics-head">
-            <div>
-              <p class="section-kicker">Analytics</p>
-              <h2>Registration trends over time</h2>
-            </div>
-            <small class="analytics-copy">Daily intake for the last 14 days</small>
-          </div>
-          <div class="chart-shell">
-            <svg viewBox="0 0 <%= chartWidth %> <%= chartHeight %>" class="trend-chart" role="img" aria-label="Registration trend line chart">
-              <defs>
-                <linearGradient id="trendStroke" x1="0%" x2="100%" y1="0%" y2="0%">
-                  <stop offset="0%" stop-color="currentColor"></stop>
-                  <stop offset="100%" stop-color="#5ea4ff"></stop>
-                </linearGradient>
-                <linearGradient id="trendArea" x1="0%" x2="0%" y1="0%" y2="100%">
-                  <stop offset="0%" stop-color="rgba(57, 123, 255, 0.28)"></stop>
-                  <stop offset="100%" stop-color="rgba(57, 123, 255, 0)"></stop>
-                </linearGradient>
-              </defs>
-              <% [0.25, 0.5, 0.75].forEach((mark) => { const y = chartHeight - chartPaddingY - (mark * (chartHeight - chartPaddingY * 2)); %>
-                <line x1="<%= chartPaddingX %>" y1="<%= y %>" x2="<%= chartWidth - chartPaddingX %>" y2="<%= y %>" class="chart-grid"></line>
-              <% }) %>
-              <polygon points="<%= areaPoints %>" class="chart-area"></polygon>
-              <polyline points="<%= linePoints %>" class="chart-line"></polyline>
-              <% points.forEach((point) => { %>
-                <circle cx="<%= point.x %>" cy="<%= point.y %>" r="4.5" class="chart-point"></circle>
-              <% }) %>
-            </svg>
-            <div class="chart-axis">
-              <% trend.forEach((item) => { %>
-                <span><%= item.label %></span>
-              <% }) %>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <aside class="superapp-status">
-        <section id="settings" class="panel-surface side-card">
-          <div class="section-head compact-head">
-            <div>
-              <p class="section-kicker">System Status</p>
-              <h2>Quick controls</h2>
-            </div>
-          </div>
-          <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
-            <span data-theme-label>Switch theme</span>
-            <strong data-theme-mode>Light</strong>
-          </button>
-          <div class="status-stack">
-            <div class="status-row">
-              <span>Email service</span>
-              <strong><%= emailConfigured ? 'SMTP live' : 'Preview mode' %></strong>
-            </div>
-            <div class="status-row">
-              <span>Certificates</span>
-              <strong><%= dashboard.summary.certificatesGenerated %> ready</strong>
-            </div>
-            <div class="status-row">
-              <span>Event location</span>
-              <a class="inline-link" href="<%= mapUrl %>" target="_blank" rel="noreferrer">Open Google Maps</a>
-            </div>
-          </div>
-        </section>
-
-        <section id="automations" class="panel-surface side-card quick-actions-card">
-          <div class="section-head compact-head">
-            <div>
-              <p class="section-kicker">Quick Actions</p>
-              <h2>Manual triggers</h2>
-            </div>
-          </div>
-          <% if (dashboard.recentRegistrations.length > 0) { %>
-            <form class="action-form" method="post" action="/actions/certificates/regenerate" target="_blank">
-              <label for="registrationId">Generate certificate for</label>
-              <select id="registrationId" name="registrationId">
-                <% dashboard.recentRegistrations.forEach((registration) => { %>
-                  <option value="<%= registration.registrationId %>" <%= registration.registrationId === quickActionRegistrationId ? 'selected' : '' %>><%= registration.fullName %> • <%= registration.registrationId %></option>
+            <div class="chart-shell">
+              <svg viewBox="0 0 <%= chartWidth %> <%= chartHeight %>" class="trend-chart" role="img" aria-label="Registration trend line chart">
+                <defs>
+                  <linearGradient id="trendStroke" x1="0%" x2="100%" y1="0%" y2="0%">
+                    <stop offset="0%" stop-color="currentColor"></stop>
+                    <stop offset="100%" stop-color="#5f90ff"></stop>
+                  </linearGradient>
+                </defs>
+                <% [0.25, 0.5, 0.75].forEach((mark) => { const y = chartHeight - chartPaddingY - (mark * (chartHeight - chartPaddingY * 2)); %>
+                  <line x1="<%= chartPaddingX %>" y1="<%= y %>" x2="<%= chartWidth - chartPaddingX %>" y2="<%= y %>" class="chart-grid"></line>
                 <% }) %>
-              </select>
-              <button class="action-button action-button-primary" type="submit">Trigger Certificate</button>
-            </form>
-          <% } else { %>
-            <div class="empty-shell small-empty">Register someone first to unlock manual certificate generation.</div>
-          <% } %>
-          <a class="action-button action-button-secondary" href="/downloads/registrations.xlsx">Export Spreadsheet Data</a>
+                <polygon points="<%= areaPoints %>" class="chart-area"></polygon>
+                <polyline points="<%= linePoints %>" class="chart-line"></polyline>
+                <% points.forEach((point) => { %>
+                  <circle cx="<%= point.x %>" cy="<%= point.y %>" r="4.5" class="chart-point"></circle>
+                <% }) %>
+              </svg>
+              <div class="axis-row">
+                <% trend.forEach((item) => { %>
+                  <span><%= item.label %></span>
+                <% }) %>
+              </div>
+            </div>
+          </article>
+
+          <div class="dashboard-stack">
+            <article class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <span class="card-eyebrow">Quick controls</span>
+                  <h2 class="panel-title">Operations</h2>
+                </div>
+              </div>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <span>Email service</span>
+                  <strong><%= emailConfigured ? 'SMTP live' : 'Preview logging' %></strong>
+                </div>
+                <div class="summary-item">
+                  <span>Top source</span>
+                  <strong><%= topSource %></strong>
+                </div>
+                <div class="summary-item">
+                  <span>Top city</span>
+                  <strong><%= topCity %></strong>
+                </div>
+                <div class="summary-item">
+                  <span>Event location</span>
+                  <a class="map-link" href="<%= mapUrl %>" target="_blank" rel="noreferrer">Open Google Maps</a>
+                </div>
+              </div>
+              <div class="stack-actions" style="margin-top: 18px;">
+                <% if (dashboard.recentRegistrations.length > 0) { %>
+                  <form method="post" action="/actions/certificates/regenerate" target="_blank" class="stack-actions" style="width: 100%;">
+                    <input type="hidden" name="registrationId" value="<%= quickActionRegistrationId %>" />
+                    <button class="button button--primary button--full" type="submit">Trigger latest certificate</button>
+                  </form>
+                <% } %>
+                <a class="button button--ghost button--full" href="/downloads/registrations.xlsx">Export spreadsheet</a>
+                <a class="button button--full" href="/automations">Open automations</a>
+              </div>
+            </article>
+
+            <article class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <span class="card-eyebrow">Resource flow</span>
+                  <h2 class="panel-title">Top channels</h2>
+                </div>
+              </div>
+              <div class="insight-grid">
+                <div class="insight-card">
+                  <span class="stat-label">Ticket leader</span>
+                  <strong><%= topTicket %></strong>
+                </div>
+                <div class="insight-card">
+                  <span class="stat-label">Attendance mode</span>
+                  <strong><%= topAttendance %></strong>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
-      </aside>
-    </div>
+
+        <section class="dashboard-grid dashboard-grid--secondary">
+          <article class="panel-card">
+            <div class="feed-head">
+              <div>
+                <span class="card-eyebrow">Recent attendees</span>
+                <h2 class="panel-title">Live registration feed</h2>
+              </div>
+              <a class="button button--ghost button--small" href="/attendees">View all</a>
+            </div>
+
+            <div class="feed-list">
+              <% if (dashboard.recentRegistrations.length === 0) { %>
+                <div class="empty-state">
+                  <strong>No registrations yet.</strong>
+                  <p>The dashboard is ready. As soon as registrations arrive, email status and certificate downloads will appear here.</p>
+                </div>
+              <% } %>
+
+              <% dashboard.recentRegistrations.forEach((registration) => { const initials = registration.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase(); %>
+                <article class="feed-row">
+                  <div class="feed-identity">
+                    <div class="avatar"><%= initials %></div>
+                    <div>
+                      <div class="feed-name"><%= registration.fullName %></div>
+                      <div class="feed-meta"><%= registration.ticketType %> and <%= registration.attendanceMode %> from <%= registration.city || 'Unknown city' %></div>
+                    </div>
+                  </div>
+                  <div class="feed-actions">
+                    <span class="status-pill <%= registration.emailSuccessful ? 'status-pill--success' : 'status-pill--warning' %>"><span class="status-dot"></span><strong><%= registration.emailSuccessful ? 'Success' : 'Attention' %></strong></span>
+                    <a class="button button--small" href="<%= registration.certificateUrl %>" target="_blank" rel="noreferrer">Download PDF</a>
+                  </div>
+                </article>
+              <% }) %>
+            </div>
+          </article>
+
+          <article class="panel-card">
+            <div class="panel-head">
+              <div>
+                <span class="card-eyebrow">Visibility</span>
+                <h2 class="panel-title">Automation health</h2>
+              </div>
+            </div>
+            <div class="detail-list">
+              <div class="detail-item">
+                <span>Confirmed registrations</span>
+                <strong><%= dashboard.summary.confirmedRegistrations %></strong>
+              </div>
+              <div class="detail-item">
+                <span>Delivery mode</span>
+                <strong><%= dashboard.summary.emailMode %></strong>
+              </div>
+              <div class="detail-item">
+                <span>Support email</span>
+                <strong><%= event.supportEmail %></strong>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+    </main>
+
+    <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
+    <script src="/js/dashboard.js?v=<%= assetVersion %>" defer></script>
   </body>
 </html>
+

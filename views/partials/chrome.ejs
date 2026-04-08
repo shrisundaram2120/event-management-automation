@@ -1,0 +1,79 @@
+﻿<%
+  const currentPage = activePage || "dashboard";
+  const currentPageLabel = {
+    dashboard: "Dashboard",
+    registrations: "Registration",
+    attendees: "Attendees",
+    automations: "Automations",
+  }[currentPage] || "EventFlow";
+  const navItems = [
+    { key: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home" },
+    { key: "registrations", href: "/", label: "Registration", mobileLabel: "Register" },
+    { key: "attendees", href: "/attendees", label: "Attendees", mobileLabel: "People" },
+    { key: "automations", href: "/automations", label: "Automations", mobileLabel: "Config" },
+  ];
+
+  function navIcon(key) {
+    if (key === "dashboard") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="5" rx="2"></rect><rect x="13" y="10" width="8" height="11" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect></svg>';
+    }
+
+    if (key === "registrations") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"></path><path d="M8 9h8"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>';
+    }
+
+    if (key === "attendees") {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="9.5" cy="7" r="3"></circle><path d="M20 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16.5 4.13a3 3 0 0 1 0 5.74"></path></svg>';
+    }
+
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.2 1.2 0 0 1 0 1.7l-1.6 1.6a1.2 1.2 0 0 1-1.7 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a1.2 1.2 0 0 1-1.2 1.2h-2.3A1.2 1.2 0 0 1 9.9 20v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.2 1.2 0 0 1-1.7 0l-1.6-1.6a1.2 1.2 0 0 1 0-1.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a1.2 1.2 0 0 1-1.2-1.2v-2.3A1.2 1.2 0 0 1 4 8.5h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.2 1.2 0 0 1 0-1.7l1.6-1.6a1.2 1.2 0 0 1 1.7 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4A1.2 1.2 0 0 1 11.1 2.8h2.3A1.2 1.2 0 0 1 14.6 4v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.2 1.2 0 0 1 1.7 0l1.6 1.6a1.2 1.2 0 0 1 0 1.7l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2A1.2 1.2 0 0 1 21.2 11v2.3a1.2 1.2 0 0 1-1.2 1.2h-.2a1 1 0 0 0-.4.5z"></path></svg>';
+  }
+%>
+<header class="app-topbar">
+  <a class="app-brand" href="/dashboard">
+    <span class="brand-mark">EF</span>
+    <span class="brand-lockup">
+      <strong><%= appName %></strong>
+      <small>Event automation system</small>
+    </span>
+  </a>
+
+  <div class="topbar-meta desktop-only">
+    <span>Current workspace</span>
+    <strong><%= currentPageLabel %></strong>
+  </div>
+
+  <div class="topbar-actions">
+    <a class="topbar-link topbar-link--desktop" href="/downloads/registrations.xlsx">Export data</a>
+    <button class="theme-switch" type="button" data-theme-toggle aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2.5"></path><path d="M12 18.5V21"></path><path d="M4.93 4.93l1.77 1.77"></path><path d="M17.3 17.3l1.77 1.77"></path><path d="M3 12h2.5"></path><path d="M18.5 12H21"></path><path d="M4.93 19.07l1.77-1.77"></path><path d="M17.3 6.7l1.77-1.77"></path><circle cx="12" cy="12" r="4"></circle></svg>
+      <span data-theme-label>Switch theme</span>
+      <strong data-theme-mode>Light</strong>
+    </button>
+    <span class="user-badge">EF</span>
+  </div>
+</header>
+
+<aside class="desktop-sidebar">
+  <span class="sidebar-label">Management</span>
+  <nav class="sidebar-nav" aria-label="Primary navigation">
+    <% navItems.forEach((item) => { %>
+      <a class="nav-link <%= currentPage === item.key ? 'nav-link--active' : '' %>" href="<%= item.href %>">
+        <span><%- navIcon(item.key) %></span>
+        <span><%= item.label %></span>
+      </a>
+    <% }) %>
+  </nav>
+  <div class="sidebar-note">
+    Built for responsive event operations across mobile, laptop, and desktop workflows.
+  </div>
+</aside>
+
+<nav class="mobile-nav" aria-label="Mobile navigation">
+  <% navItems.forEach((item) => { %>
+    <a class="mobile-link <%= currentPage === item.key ? 'mobile-link--active' : '' %>" href="<%= item.href %>">
+      <span><%- navIcon(item.key) %></span>
+      <span><%= item.mobileLabel %></span>
+    </a>
+  <% }) %>
+</nav>

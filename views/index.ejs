@@ -1,188 +1,214 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= pageTitle %></title>
-    <link rel="stylesheet" href="/css/styles.css" />
-  </head>
-  <body class="page-shell">
-    <header class="topbar">
-      <a class="brand" href="/">
-        <span class="brand-mark">EF</span>
-        <span>
-          <strong><%= appName %></strong>
-          <small>Event operations, automated</small>
-        </span>
-      </a>
-      <nav class="nav-links">
-        <a href="/dashboard">Dashboard</a>
-        <a href="/downloads/registrations.xlsx">Spreadsheet</a>
-      </nav>
-    </header>
+﻿<%- include("partials/head") %>
+  <body class="app-body">
+    <%- include("partials/chrome", { activePage: activePage }) %>
 
-    <main class="home-grid">
-      <section class="panel hero-panel">
-        <span class="eyebrow">Automated event management system</span>
-        <h1><%= event.name %></h1>
-        <p class="lead"><%= event.tagline %></p>
+    <main class="app-main">
+      <div class="page-wrap">
+        <section class="page-header">
+          <div class="page-copy">
+            <span class="eyebrow">Secure your spot</span>
+            <h1><%= event.name %></h1>
+            <p class="page-description"><%= event.tagline %>. Register attendees, trigger confirmations automatically, and keep the entire flow visible from one system.</p>
+          </div>
+          <div class="status-inline">
+            <span class="status-pill status-pill--primary"><span class="status-dot"></span><strong><%= metrics.emailMode %></strong></span>
+            <a class="button button--ghost" href="/dashboard">Open dashboard</a>
+            <a class="button" href="/attendees">View attendees</a>
+          </div>
+        </section>
 
-        <div class="event-ribbon">
-          <span><strong>Date</strong><%= event.date %></span>
-          <span><strong>Time</strong><%= event.time %></span>
-          <span><strong>Venue</strong><%= event.venue %></span>
-        </div>
+        <section class="registration-grid">
+          <div class="hero-stack">
+            <article class="hero-card">
+              <span class="card-eyebrow">Event brief</span>
+              <h2>Architected for clean, automated operations.</h2>
+              <p class="panel-copy">Use the same registration pipeline on desktop, laptop, and mobile while certificates, spreadsheet exports, and email workflows keep running behind the scenes.</p>
+            </article>
 
-        <div class="metric-grid">
-          <article class="metric-card">
-            <span>Total registrations</span>
-            <strong><%= metrics.totalRegistrations %></strong>
-          </article>
-          <article class="metric-card">
-            <span>Seats remaining</span>
-            <strong><%= metrics.remainingCapacity %></strong>
-          </article>
-          <article class="metric-card">
-            <span>Fill rate</span>
-            <strong><%= metrics.fillRate %>%</strong>
-          </article>
-          <article class="metric-card">
-            <span>Registrations today</span>
-            <strong><%= metrics.todayRegistrations %></strong>
-          </article>
-        </div>
+            <div class="detail-stack">
+              <article class="detail-card">
+                <span>Date and time</span>
+                <strong><%= event.date %></strong>
+                <p class="panel-copy"><%= event.time %></p>
+              </article>
+              <article class="detail-card">
+                <span>Venue</span>
+                <strong><%= event.venue %></strong>
+                <p class="panel-copy">Google Maps opens from the dashboard status panel for staff navigation.</p>
+              </article>
+              <article class="detail-card">
+                <span>Availability</span>
+                <strong><%= metrics.remainingCapacity %> seats left</strong>
+                <p class="panel-copy"><%= metrics.fillRate %>% of total capacity is already filled.</p>
+              </article>
+            </div>
 
-        <div class="story-grid">
-          <article class="story-card accent-card">
-            <h2>What runs automatically</h2>
-            <ul class="feature-list">
-              <li>Every registration is appended into a live Excel workbook.</li>
-              <li>Each attendee gets a generated PDF certificate file.</li>
-              <li>Email confirmations send instantly with SMTP, or fall back to a local preview log.</li>
-              <li>The dashboard refreshes from registration data and surfaces trends by day, source, city, and ticket type.</li>
-            </ul>
-          </article>
-          <article class="story-card">
-            <h2>Operations snapshot</h2>
-            <div class="status-stack">
-              <div>
-                <span>Status</span>
-                <strong>Registration open</strong>
-              </div>
-              <div>
-                <span>Email mode</span>
-                <strong><%= metrics.emailMode %></strong>
-              </div>
-              <div>
-                <span>Support</span>
-                <strong><%= event.supportEmail %></strong>
+            <div class="stats-grid stats-grid--compact">
+              <article class="panel-card stat-card stat-card--soft">
+                <span class="stat-label">Total registrations</span>
+                <div class="stat-value"><%= metrics.totalRegistrations %></div>
+                <p class="stat-meta">Live registrations stored in SQLite and exportable to spreadsheet.</p>
+              </article>
+              <article class="panel-card stat-card stat-card--soft">
+                <span class="stat-label">Today</span>
+                <div class="stat-value"><%= metrics.todayRegistrations %></div>
+                <p class="stat-meta">New registrations captured so far today.</p>
+              </article>
+              <article class="panel-card stat-card stat-card--primary">
+                <span class="stat-label">Automation mode</span>
+                <div class="stat-value"><%= emailConfigured ? 'Live' : 'Preview' %></div>
+                <p class="stat-meta">Email confirmation, certificate generation, and data export remain connected.</p>
+              </article>
+            </div>
+
+            <article class="registration-side-note">
+              <span class="card-eyebrow">What runs automatically</span>
+              <ul>
+                <li>Registrations save to persistent SQLite storage and stay exportable as XLSX.</li>
+                <li>Every confirmed attendee gets a certificate PDF generated in the background.</li>
+                <li>Emails send through SMTP or fall back to local preview logging with the same workflow.</li>
+                <li>Dashboard, attendee list, and automation preview stay in sync across mobile and desktop.</li>
+              </ul>
+            </article>
+          </div>
+
+          <section class="form-panel">
+            <div class="page-header" style="margin-bottom: 22px;">
+              <div class="page-copy">
+                <span class="eyebrow">Registration details</span>
+                <h2>Complete the attendee profile</h2>
+                <p class="page-description">Keep the current event workflow intact while presenting the form in the new responsive event system.</p>
               </div>
             </div>
-          </article>
-        </div>
-      </section>
 
-      <section class="panel form-panel">
-        <div class="panel-heading">
-          <div>
-            <span class="eyebrow">Registration form</span>
-            <h2>Reserve a seat</h2>
-          </div>
-          <span class="mode-pill"><%= metrics.emailMode %></span>
-        </div>
+            <% if (errors.form) { %>
+              <div class="notice notice--warning"><%= errors.form %></div>
+            <% } %>
 
-        <% if (errors.form) { %>
-          <div class="alert error-alert"><%= errors.form %></div>
-        <% } %>
+            <form method="post" action="/register" class="detail-stack">
+              <div class="form-grid">
+                <label class="field">
+                  <span class="field-label">Full name</span>
+                  <div class="field-control">
+                    <input type="text" name="fullName" value="<%= formData.fullName %>" placeholder="e.g. Julianne Vane" required />
+                  </div>
+                  <% if (errors.fullName) { %><small class="field-error"><%= errors.fullName %></small><% } %>
+                </label>
 
-        <form class="registration-form" method="post" action="/register">
-          <div class="form-grid">
-            <label class="field field--wide">
-              <span>Full name</span>
-              <input type="text" name="fullName" value="<%= formData.fullName %>" placeholder="Aarav Menon" required />
-              <% if (errors.fullName) { %><small class="field-error"><%= errors.fullName %></small><% } %>
-            </label>
+                <label class="field">
+                  <span class="field-label">Email address</span>
+                  <div class="field-control">
+                    <input type="email" name="email" value="<%= formData.email %>" placeholder="julianne@studio.co" required />
+                  </div>
+                  <% if (errors.email) { %><small class="field-error"><%= errors.email %></small><% } %>
+                </label>
 
-            <label class="field">
-              <span>Email address</span>
-              <input type="email" name="email" value="<%= formData.email %>" placeholder="aarav@example.com" required />
-              <% if (errors.email) { %><small class="field-error"><%= errors.email %></small><% } %>
-            </label>
+                <label class="field">
+                  <span class="field-label">Phone</span>
+                  <div class="field-control">
+                    <input type="text" name="phone" value="<%= formData.phone %>" placeholder="+91 98765 43210" required />
+                  </div>
+                  <% if (errors.phone) { %><small class="field-error"><%= errors.phone %></small><% } %>
+                </label>
 
-            <label class="field">
-              <span>Phone</span>
-              <input type="text" name="phone" value="<%= formData.phone %>" placeholder="+91 98765 43210" required />
-              <% if (errors.phone) { %><small class="field-error"><%= errors.phone %></small><% } %>
-            </label>
+                <label class="field">
+                  <span class="field-label">Organization</span>
+                  <div class="field-control">
+                    <input type="text" name="organization" value="<%= formData.organization %>" placeholder="Architectural Innovations Ltd." />
+                  </div>
+                </label>
 
-            <label class="field">
-              <span>Organization</span>
-              <input type="text" name="organization" value="<%= formData.organization %>" placeholder="Northstar Labs" />
-            </label>
+                <label class="field field--span-2">
+                  <span class="field-label">Job title</span>
+                  <div class="field-control">
+                    <input type="text" name="jobTitle" value="<%= formData.jobTitle %>" placeholder="Program Manager" />
+                  </div>
+                </label>
 
-            <label class="field">
-              <span>Job title</span>
-              <input type="text" name="jobTitle" value="<%= formData.jobTitle %>" placeholder="Product Manager" />
-            </label>
+                <div class="field field--span-2">
+                  <span class="field-label">Select your ticket</span>
+                  <div class="option-grid">
+                    <% options.ticketTypes.forEach((ticketType) => { %>
+                      <label>
+                        <input class="option-input" type="radio" name="ticketType" value="<%= ticketType %>" <%= formData.ticketType === ticketType ? 'checked' : '' %> />
+                        <span class="option-card">
+                          <strong><%= ticketType %></strong>
+                          <small><%= ticketType === 'VIP Pass' ? 'High-touch event access' : ticketType === 'Workshop Bundle' ? 'Hands-on add-on sessions' : 'Core event access' %></small>
+                        </span>
+                      </label>
+                    <% }) %>
+                  </div>
+                  <% if (errors.ticketType) { %><small class="field-error"><%= errors.ticketType %></small><% } %>
+                </div>
 
-            <label class="field">
-              <span>Ticket type</span>
-              <select name="ticketType">
-                <% options.ticketTypes.forEach((ticketType) => { %>
-                  <option value="<%= ticketType %>" <%= formData.ticketType === ticketType ? 'selected' : '' %>><%= ticketType %></option>
-                <% }) %>
-              </select>
-              <% if (errors.ticketType) { %><small class="field-error"><%= errors.ticketType %></small><% } %>
-            </label>
+                <div class="field field--span-2">
+                  <span class="field-label">Attendance mode</span>
+                  <div class="option-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                    <% options.attendanceModes.forEach((attendanceMode) => { %>
+                      <label>
+                        <input class="option-input" type="radio" name="attendanceMode" value="<%= attendanceMode %>" <%= formData.attendanceMode === attendanceMode ? 'checked' : '' %> />
+                        <span class="option-card">
+                          <strong><%= attendanceMode %></strong>
+                          <small><%= attendanceMode === 'Virtual' ? 'Remote confirmation workflow' : 'On-site badge and certificate flow' %></small>
+                        </span>
+                      </label>
+                    <% }) %>
+                  </div>
+                  <% if (errors.attendanceMode) { %><small class="field-error"><%= errors.attendanceMode %></small><% } %>
+                </div>
 
-            <label class="field">
-              <span>Attendance mode</span>
-              <select name="attendanceMode">
-                <% options.attendanceModes.forEach((attendanceMode) => { %>
-                  <option value="<%= attendanceMode %>" <%= formData.attendanceMode === attendanceMode ? 'selected' : '' %>><%= attendanceMode %></option>
-                <% }) %>
-              </select>
-              <% if (errors.attendanceMode) { %><small class="field-error"><%= errors.attendanceMode %></small><% } %>
-            </label>
+                <label class="field">
+                  <span class="field-label">City</span>
+                  <div class="field-control">
+                    <input type="text" name="city" value="<%= formData.city %>" placeholder="Bengaluru" />
+                  </div>
+                </label>
 
-            <label class="field">
-              <span>City</span>
-              <input type="text" name="city" value="<%= formData.city %>" placeholder="Bengaluru" />
-            </label>
+                <label class="field">
+                  <span class="field-label">Country</span>
+                  <div class="field-control">
+                    <input type="text" name="country" value="<%= formData.country %>" placeholder="India" />
+                  </div>
+                </label>
 
-            <label class="field">
-              <span>Country</span>
-              <input type="text" name="country" value="<%= formData.country %>" placeholder="India" />
-            </label>
+                <label class="field field--span-2">
+                  <span class="field-label">Referral source</span>
+                  <div class="field-control">
+                    <select name="referralSource">
+                      <% options.referralSources.forEach((referralSource) => { %>
+                        <option value="<%= referralSource %>" <%= formData.referralSource === referralSource ? 'selected' : '' %>><%= referralSource %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+                  <% if (errors.referralSource) { %><small class="field-error"><%= errors.referralSource %></small><% } %>
+                </label>
 
-            <label class="field field--wide">
-              <span>How did you hear about this event?</span>
-              <select name="referralSource">
-                <% options.referralSources.forEach((referralSource) => { %>
-                  <option value="<%= referralSource %>" <%= formData.referralSource === referralSource ? 'selected' : '' %>><%= referralSource %></option>
-                <% }) %>
-              </select>
-              <% if (errors.referralSource) { %><small class="field-error"><%= errors.referralSource %></small><% } %>
-            </label>
+                <label class="field field--span-2">
+                  <span class="field-label">Notes for the event team</span>
+                  <textarea class="field-control" name="notes" placeholder="Accessibility needs, workshop interests, or event notes"><%= formData.notes %></textarea>
+                </label>
+              </div>
 
-            <label class="field field--wide">
-              <span>Notes for the event team</span>
-              <textarea name="notes" placeholder="Accessibility needs, workshop interests, or anything we should know"><%= formData.notes %></textarea>
-            </label>
-          </div>
+              <label class="consent-row">
+                <input type="checkbox" name="consent" value="yes" <%= formData.consent === 'yes' ? 'checked' : '' %> />
+                <span>I consent to receiving event updates, email confirmations, and certificate delivery for this registration.</span>
+              </label>
+              <% if (errors.consent) { %><small class="field-error"><%= errors.consent %></small><% } %>
 
-          <label class="consent-row">
-            <input type="checkbox" name="consent" value="yes" <%= formData.consent === 'yes' ? 'checked' : '' %> />
-            <span>I consent to receiving registration updates and certificate delivery for this event.</span>
-          </label>
-          <% if (errors.consent) { %><small class="field-error inline-error"><%= errors.consent %></small><% } %>
+              <div class="form-actions">
+                <button class="button button--primary" type="submit">Register now</button>
+                <a class="button" href="/automations">Preview automation</a>
+              </div>
 
-          <div class="button-row">
-            <button class="button primary-button" type="submit">Register attendee</button>
-            <a class="button ghost-button" href="/dashboard">View dashboard</a>
-          </div>
-        </form>
-      </section>
+              <p class="footer-note">Secure event workflow. Registration storage, certificate generation, and dashboard reporting stay connected after submit.</p>
+            </form>
+          </section>
+        </section>
+      </div>
     </main>
+
+    <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
   </body>
 </html>
+
+
